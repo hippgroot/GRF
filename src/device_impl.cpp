@@ -1,4 +1,5 @@
 #include "internal/device.hpp"
+#include "internal/log.hpp"
 
 #include "GLFW/glfw3.h"
 
@@ -14,6 +15,8 @@ Device::Impl::Impl(const Device::Info& info) {
   VULKAN_HPP_DEFAULT_DISPATCHER.init();
   createInstance(info);
   VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_instance);
+
+  log::general("GRF {}.{}.{}", GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH);
 }
 
 void Device::Impl::createInstance(const Device::Info& info) {
@@ -29,6 +32,18 @@ void Device::Impl::createInstance(const Device::Info& info) {
     .apiVersion         = VK_API_VERSION_1_4
   };
 
+  std::vector<const char *> layers;
+#ifdef GRF_ENABLE_VALIDATION
+  for (const auto& property : m_context.enumerateInstanceLayerProperties()) {
+    if (strcmp(property.layerName, GRF_VALIDATION_LAYER_NAME) == 0) {
+      layers.emplace_back(GRF_VALIDATION_LAYER_NAME);
+      break;
+    }
+  }
+  if (layers.empty())
+    log::warning("Debug builds enable validation layers yet none were found");
+#endif
+
   u32 count = 0;
   (void)glfwGetRequiredInstanceExtensions(&count);
   const char ** glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
@@ -39,19 +54,10 @@ void Device::Impl::createInstance(const Device::Info& info) {
     if (strcmp(property.extensionName, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) {
       extensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
       flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+      log::general("Portability enabled");
       break;
     }
   }
-
-  std::vector<const char *> layers;
-#ifdef GRF_ENABLE_VALIDATION
-  for (const auto& property : m_context.enumerateInstanceLayerProperties()) {
-    if (strcmp(property.layerName, GRF_VALIDATION_LAYER_NAME) == 0) {
-      layers.emplace_back(GRF_VALIDATION_LAYER_NAME);
-      break;
-    }
-  }
-#endif
 
   m_instance = m_context.createInstance(vk::InstanceCreateInfo{
     .flags                    = flags,
