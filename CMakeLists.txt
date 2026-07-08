@@ -15,14 +15,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED On)
 set(GRF_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 set(GRF_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
+set(GLFW_BUILD_DOCS OFF)
+set(GLFW_BUILD_TESTS OFF)
+set(GLFW_BUILD_EXAMPLES OFF)
+add_subdirectory(external/glfw)
+
 add_library(grf
   ${GRF_INCLUDE_DIR}/grf/grf.hpp
   ${GRF_INCLUDE_DIR}/grf/types.hpp
+  ${GRF_INCLUDE_DIR}/grf/window.hpp
 
   ${GRF_INCLUDE_DIR}/internal/device.hpp
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
+  ${GRF_SOURCE_DIR}/window.cpp
 )
 
 target_include_directories(grf PUBLIC ${GRF_INCLUDE_DIR})
@@ -38,6 +45,7 @@ target_compile_definitions(grf PRIVATE
 
 target_link_libraries(grf PRIVATE
   Vulkan::Vulkan
+  glfw
 )
 
 if(GRF_BUILD_EXAMPLES)
