@@ -26,6 +26,7 @@ add_library(grf
   ${GRF_INCLUDE_DIR}/grf/window.hpp
 
   ${GRF_INCLUDE_DIR}/internal/device.hpp
+  ${GRF_INCLUDE_DIR}/internal/log.hpp
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
