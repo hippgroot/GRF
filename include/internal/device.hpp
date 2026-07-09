@@ -9,9 +9,9 @@ namespace vkr = vk::raii;
 namespace grf {
 
 class QueueFamilies {
-  u8 m_graphics = 0xFF;
-  u8 m_compute = 0xFF;
-  u8 m_transfer = 0xFF;
+  u32 m_graphics = VK_QUEUE_FAMILY_IGNORED;
+  u32 m_compute = VK_QUEUE_FAMILY_IGNORED;
+  u32 m_transfer = VK_QUEUE_FAMILY_IGNORED;
 
 public:
   explicit QueueFamilies(const vkr::PhysicalDevice&);
@@ -21,15 +21,18 @@ public:
   bool hasTransfer() const;
   bool invalid() const;
 
-  u8 graphics() const;
-  u8 compute() const;
-  u8 transfer() const;
+  u32 graphics() const;
+  u32 compute() const;
+  u32 transfer() const;
 };
 
 class Device::Impl {
+  using PDOutput = std::tuple<QueueFamilies, u32, str>;
+
   vkr::Context        m_context;
   vkr::Instance       m_instance = nullptr;
   vkr::PhysicalDevice m_physicalDevice = nullptr;
+  vkr::Device         m_device = nullptr;
 
 public:
   explicit Impl(const Device::Info&);
@@ -42,7 +45,8 @@ public:
 
 private:
   bool createInstance(const Device::Info&);
-  std::tuple<QueueFamilies, u32, str> choosePhysicalDevice();
+  PDOutput choosePhysicalDevice();
+  void createDevice(const QueueFamilies&, bool);
 };
 
 }

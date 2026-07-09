@@ -2,8 +2,13 @@
 #include "internal/log.hpp"
 
 #include "GLFW/glfw3.h"
+#include "vulkan/vulkan.hpp"
+#include "vulkan/vulkan_core.h"
+#include "vulkan/vulkan_hpp_macros.hpp"
+#include <vulkan/vulkan_beta.h>
 
 #include <algorithm>
+#include <set>
 
 #ifdef GRF_ENABLE_VALIDATION
 #define GRF_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
@@ -26,7 +31,7 @@ QueueFamilies::QueueFamilies(const vkr::PhysicalDevice& physicalDevice) {
         separateCompute = m_compute != m_graphics;
       }
 
-      if (!separateTransfer && (property.queueFlags & vk::QueueFlagBits::eTransfer)) {
+      if (!separateTransfer) {
         m_transfer = i;
         separateTransfer = m_transfer != m_graphics && m_transfer != m_compute;
       }
@@ -37,7 +42,7 @@ QueueFamilies::QueueFamilies(const vkr::PhysicalDevice& physicalDevice) {
         asyncCompute = separateCompute = true;
       }
 
-      if (!separateTransfer && (property.queueFlags & vk::QueueFlagBits::eTransfer)) {
+      if (!separateTransfer) {
         m_transfer = i;
         separateTransfer = m_transfer != m_compute;
       }
@@ -52,30 +57,30 @@ QueueFamilies::QueueFamilies(const vkr::PhysicalDevice& physicalDevice) {
 }
 
 bool QueueFamilies::hasGraphics() const {
-  return m_graphics != 0xFF;
+  return m_graphics != VK_QUEUE_FAMILY_IGNORED;
 }
 
 bool QueueFamilies::hasCompute() const {
-  return m_compute != 0xFF;
+  return m_compute != VK_QUEUE_FAMILY_IGNORED;
 }
 
 bool QueueFamilies::hasTransfer() const {
-  return m_transfer != 0xFF;
+  return m_transfer != VK_QUEUE_FAMILY_IGNORED;
 }
 
 bool QueueFamilies::invalid() const {
   return !(hasGraphics() && hasCompute() && hasTransfer());
 }
 
-u8 QueueFamilies::graphics() const {
+u32 QueueFamilies::graphics() const {
   return m_graphics;
 }
 
-u8 QueueFamilies::compute() const {
+u32 QueueFamilies::compute() const {
   return m_compute;
 }
 
-u8 QueueFamilies::transfer() const {
+u32 QueueFamilies::transfer() const {
   return m_transfer;
 }
 
@@ -86,6 +91,8 @@ Device::Impl::Impl(const Device::Info& info) {
   VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_instance);
 
   auto [queueFamilies, apiVersion, name] = choosePhysicalDevice();
+  createDevice(queueFamilies, queryPortability);
+  VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_device);
 
   log::general("GRF Version: {}.{}.{}",
     GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH
@@ -109,7 +116,7 @@ bool Device::Impl::createInstance(const Device::Info& info) {
     .apiVersion         = VK_API_VERSION_1_4
   };
 
-  std::vector<const char *> layers;
+  std::vector<const char*> layers;
 #ifdef GRF_ENABLE_VALIDATION
   for (const auto& property : m_context.enumerateInstanceLayerProperties()) {
     if (strcmp(property.layerName, GRF_VALIDATION_LAYER_NAME) == 0) {
@@ -123,9 +130,9 @@ bool Device::Impl::createInstance(const Device::Info& info) {
 
   u32 count = 0;
   (void)glfwGetRequiredInstanceExtensions(&count);
-  const char ** glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
+  const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
 
-  std::vector<const char *> extensions(glfwExtensions, glfwExtensions + count);
+  std::vector<const char*> extensions(glfwExtensions, glfwExtensions + count);
   vk::InstanceCreateFlags flags;
   bool enabledPortability = false;
   for (const auto& property : m_context.enumerateInstanceExtensionProperties()) {
@@ -151,7 +158,7 @@ bool Device::Impl::createInstance(const Device::Info& info) {
   return enabledPortability;
 }
 
-std::tuple<QueueFamilies, u32, str> Device::Impl::choosePhysicalDevice() {
+Device::Impl::PDOutput Device::Impl::choosePhysicalDevice() {
   struct PDInfo {
     vkr::PhysicalDevice physicalDevice;
     QueueFamilies       queueFamilies;
@@ -162,10 +169,40 @@ std::tuple<QueueFamilies, u32, str> Device::Impl::choosePhysicalDevice() {
 
   std::vector<PDInfo> validPhysicalDevices;
   for (const auto& physicalDevice : m_instance.enumeratePhysicalDevices()) {
+    auto properties = physicalDevice.getProperties();
+    if (properties.apiVersion < VK_API_VERSION_1_4) continue;
+
+    bool hasSwapchainSupport = false;
+    for (const auto& property : physicalDevice.enumerateDeviceExtensionProperties()) {
+      if (strcmp(property.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+        hasSwapchainSupport = true;
+        break;
+      }
+    }
+    if (!hasSwapchainSupport) continue;
+
     QueueFamilies queueFamilies(physicalDevice);
     if (queueFamilies.invalid()) continue;
 
-    auto properties = physicalDevice.getProperties();
+    auto features = physicalDevice.getFeatures2<
+      vk::PhysicalDeviceFeatures2,
+      vk::PhysicalDeviceVulkan12Features,
+      vk::PhysicalDeviceVulkan14Features
+    >();
+
+    auto f2 = features.get<vk::PhysicalDeviceFeatures2>();
+    auto f12 = features.get<vk::PhysicalDeviceVulkan12Features>();
+    auto f14 = features.get<vk::PhysicalDeviceVulkan14Features>();
+
+    if (
+      !f2.features.shaderStorageImageReadWithoutFormat  ||
+      !f2.features.shaderStorageImageWriteWithoutFormat ||
+      !f12.descriptorIndexing                           ||
+      !f12.shaderStorageImageArrayNonUniformIndexing    ||
+      !f12.descriptorBindingVariableDescriptorCount     ||
+      !f14.hostImageCopy
+    ) continue;
+
     u8 rank;
     switch (properties.deviceType) {
     case vk::PhysicalDeviceType::eDiscreteGpu:
@@ -201,6 +238,76 @@ std::tuple<QueueFamilies, u32, str> Device::Impl::choosePhysicalDevice() {
 
   m_physicalDevice = chosen.physicalDevice;
   return { chosen.queueFamilies, chosen.apiVersion, chosen.name };
+}
+
+void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPortability) {
+  std::set<u32> indices = { queueFamilies.graphics(), queueFamilies.compute(), queueFamilies.transfer() };
+  std::vector<vk::DeviceQueueCreateInfo> queueInfos;
+  f32 priority = 1.0f;
+  for (u32 index : indices) {
+    queueInfos.emplace_back(vk::DeviceQueueCreateInfo{
+      .queueFamilyIndex = index,
+      .queueCount       = 1,
+      .pQueuePriorities = &priority
+    });
+  }
+
+  std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+  if (queryPortability) {
+    for (const auto& property : m_physicalDevice.enumerateDeviceExtensionProperties()) {
+      if (strcmp(property.extensionName, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME) == 0) {
+        extensions.emplace_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+        break;
+      }
+    }
+  }
+
+  vk::StructureChain<
+    vk::DeviceCreateInfo,
+    vk::PhysicalDeviceFeatures2,
+    vk::PhysicalDeviceVulkan12Features,
+    vk::PhysicalDeviceVulkan13Features,
+    vk::PhysicalDeviceVulkan14Features
+  > createChain{
+    vk::DeviceCreateInfo{
+      .queueCreateInfoCount     = static_cast<u32>(queueInfos.size()),
+      .pQueueCreateInfos        = queueInfos.data(),
+      .enabledExtensionCount    = static_cast<u32>(extensions.size()),
+      .ppEnabledExtensionNames  = extensions.data(),
+    },
+    vk::PhysicalDeviceFeatures2{
+      .features = {
+        .shaderStorageImageReadWithoutFormat  = true,
+        .shaderStorageImageWriteWithoutFormat = true,
+      }
+    },
+    vk::PhysicalDeviceVulkan12Features{
+      .descriptorIndexing                           = true,
+      .shaderSampledImageArrayNonUniformIndexing    = true,
+      .shaderStorageImageArrayNonUniformIndexing    = true,
+      .descriptorBindingSampledImageUpdateAfterBind = true,
+      .descriptorBindingStorageImageUpdateAfterBind = true,
+      .descriptorBindingUpdateUnusedWhilePending    = true,
+      .descriptorBindingPartiallyBound              = true,
+      .descriptorBindingVariableDescriptorCount     = true,
+      .runtimeDescriptorArray                       = true,
+      .shaderSubgroupExtendedTypes                  = true,
+      .hostQueryReset                               = true,
+      .timelineSemaphore                            = true,
+      .bufferDeviceAddress                          = true,
+    },
+    vk::PhysicalDeviceVulkan13Features{
+      .shaderDemoteToHelperInvocation = true,
+      .synchronization2               = true,
+      .dynamicRendering               = true,
+    },
+    vk::PhysicalDeviceVulkan14Features{
+      .dynamicRenderingLocalRead = true,
+      .hostImageCopy             = true,
+    }
+  };
+
+  m_device = m_physicalDevice.createDevice(createChain.get<vk::DeviceCreateInfo>());
 }
 
 }
