@@ -7,7 +7,7 @@ project(GrootRenderingFramework
   LANGUAGES CXX
 )
 
-find_package(Vulkan REQUIRED)
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
@@ -21,17 +21,19 @@ set(GLFW_BUILD_EXAMPLES OFF)
 add_subdirectory(external/glfw)
 
 add_library(grf
-  ${GRF_INCLUDE_DIR}/grf/grf.hpp
+  ${GRF_INCLUDE_DIR}/grf/device.hpp
   ${GRF_INCLUDE_DIR}/grf/swapchain.hpp
   ${GRF_INCLUDE_DIR}/grf/types.hpp
   ${GRF_INCLUDE_DIR}/grf/window.hpp
 
   ${GRF_INCLUDE_DIR}/internal/device.hpp
   ${GRF_INCLUDE_DIR}/internal/log.hpp
+  ${GRF_INCLUDE_DIR}/internal/shader_manager.hpp
   ${GRF_INCLUDE_DIR}/internal/swapchain.hpp
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
+  ${GRF_SOURCE_DIR}/shader_manager.cpp
   ${GRF_SOURCE_DIR}/swapchain.cpp
   ${GRF_SOURCE_DIR}/swapchain_impl.cpp
   ${GRF_SOURCE_DIR}/window.cpp
@@ -50,6 +52,7 @@ target_compile_definitions(grf PRIVATE
 
 target_link_libraries(grf PRIVATE
   Vulkan::Vulkan
+  Vulkan::shaderc_combined
   glfw
 )
 

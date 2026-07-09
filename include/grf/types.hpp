@@ -240,4 +240,11 @@ enum class Key : u16 {
   Menu          = 348
 };
 
+enum class ShaderStage {
+  Vertex,
+  Fragment,
+  Compute,
+  Mesh
+};
+
 }

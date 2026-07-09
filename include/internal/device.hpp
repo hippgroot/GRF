@@ -1,8 +1,9 @@
 #pragma once
 
-#include "grf/device.hpp"
+#include "internal/shader_manager.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
+#include <shaderc/shaderc.hpp>
 
 #include <mutex>
 
@@ -60,6 +61,8 @@ class Device::Impl {
   Queue               m_graphicsQueue;
   Queue               m_computeQueue;
   Queue               m_transferQueue;
+
+  ShaderManager       m_shaderManager;
 
 public:
   explicit Impl(const Device::Info&);

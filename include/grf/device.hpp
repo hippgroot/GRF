@@ -3,6 +3,7 @@
 #include "./types.hpp"
 
 #include <memory>
+#include <filesystem>
 
 namespace grf {
 
@@ -22,6 +23,24 @@ public:
 
 private:
   Queue() = default;
+};
+
+class Shader {
+  friend class ShaderManager;
+
+  class Impl;
+  std::shared_ptr<Impl> m_impl;
+
+public:
+  ~Shader() = default;
+
+  Shader(const Shader&) = default;
+  Shader(Shader&&) = default;
+  Shader& operator=(const Shader&) = default;
+  Shader& operator=(Shader&&) = default;
+
+private:
+  Shader() = default;
 };
 
 class Device {
@@ -54,6 +73,8 @@ public:
 
   const Queue& graphicsQueue() const;
   const Queue& computeQueue() const;
+
+  Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
 };
 
 }
