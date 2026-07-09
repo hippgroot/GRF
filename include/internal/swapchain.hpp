@@ -11,6 +11,8 @@ class GLFWwindow;
 namespace grf {
 
 class Swapchain::Impl {
+  friend class Swapchain;
+
   const vkr::PhysicalDevice&  m_physicalDevice;
   const vkr::Device&          m_device;
   Window*                     m_window;

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "grf/device.hpp"
+#include "grf/pipeline.hpp"
+#include "grf/types.hpp"
 
 #include <shaderc/shaderc.hpp>
 #include <vulkan/vulkan_raii.hpp>
@@ -13,11 +14,29 @@ namespace fs = std::filesystem;
 namespace grf {
 
 class Shader::Impl {
-  ShaderStage       m_stage;
-  vkr::ShaderModule m_module;
+  friend class Device;
+  friend class Shader;
+
+  vk::ShaderStageFlagBits m_stage;
+  vkr::ShaderModule       m_module;
 
 public:
-  Impl(ShaderStage, vkr::ShaderModule&&);
+  Impl(vk::ShaderStageFlagBits, vkr::ShaderModule&&);
+  ~Impl() = default;
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+};
+
+class Pipeline::Impl {
+  friend class Pipeline;
+
+  vkr::Pipeline m_pipeline = nullptr;
+
+public:
+  explicit Impl(vkr::Pipeline&&);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;

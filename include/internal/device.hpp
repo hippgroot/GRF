@@ -1,6 +1,7 @@
 #pragma once
 
-#include "internal/shader_manager.hpp"
+#include "grf/device.hpp"
+#include "internal/pipeline.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 #include <shaderc/shaderc.hpp>
@@ -62,6 +63,9 @@ class Device::Impl {
   Queue               m_computeQueue;
   Queue               m_transferQueue;
 
+  vkr::DescriptorSetLayout  m_setLayout = nullptr;
+  vkr::PipelineLayout       m_pipelineLayout = nullptr;
+
   ShaderManager       m_shaderManager;
 
 public:
@@ -77,6 +81,7 @@ private:
   bool createInstance(const Device::Info&);
   PDOutput choosePhysicalDevice();
   void createDevice(const QueueFamilies&, bool);
+  void createLayouts();
 };
 
 }

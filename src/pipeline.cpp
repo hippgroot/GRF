@@ -1,13 +1,15 @@
-#include "internal/shader_manager.hpp"
+#include "internal/pipeline.hpp"
 #include "internal/log.hpp"
 
 #include <fstream>
 
 namespace grf {
 
-Shader::Impl::Impl(ShaderStage stage, vkr::ShaderModule&& module)
+Shader::Impl::Impl(vk::ShaderStageFlagBits stage, vkr::ShaderModule&& module)
 : m_stage(stage), m_module(std::move(module))
 {}
+
+Pipeline::Impl::Impl(vkr::Pipeline&& pipeline) : m_pipeline(std::move(pipeline)) {}
 
 ShaderManager::ShaderManager() {
   m_opts.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_4);
@@ -27,25 +29,22 @@ Shader ShaderManager::compile(const vkr::Device& device, ShaderStage stage, cons
   shaderc_shader_kind kind;
   switch (stage) {
   case ShaderStage::Vertex:
-    kind = shaderc_shader_kind::shaderc_glsl_vertex_shader;
+    kind = shaderc_glsl_vertex_shader;
     break;
   case ShaderStage::Fragment:
-    kind = shaderc_shader_kind::shaderc_fragment_shader;
+    kind = shaderc_fragment_shader;
     break;
   case ShaderStage::Compute:
-    kind = shaderc_shader_kind::shaderc_compute_shader;
-    break;
-  case ShaderStage::Mesh:
-    kind = shaderc_shader_kind::shaderc_mesh_shader;
+    kind = shaderc_compute_shader;
     break;
   default:
-    log::panic("Invalid shader stage given to {}", path.string());
+    log::error("Invalid shader stage given to {}", path.string());
   }
 
   auto result = m_compiler.CompileGlslToSpv(source, kind, path.c_str(), m_opts);
 
-  if (result.GetCompilationStatus() != shaderc_compilation_status::shaderc_compilation_status_success)
-    log::panic("Failed to compile {}:\n{}", path.string(), result.GetErrorMessage());
+  if (result.GetCompilationStatus() != shaderc_compilation_status_success)
+    log::error("Failed to compile {}:\n{}", path.string(), result.GetErrorMessage());
 
 
   if (result.GetNumWarnings() > 0)
@@ -56,10 +55,13 @@ Shader ShaderManager::compile(const vkr::Device& device, ShaderStage stage, cons
   std::vector<u32> code(result.cbegin(), result.cend());
 
   Shader s;
-  s.m_impl = std::make_unique<Shader::Impl>(stage, device.createShaderModule(vk::ShaderModuleCreateInfo{
-    .codeSize = code.size() * sizeof(u32),
-    .pCode = code.data()
-  }));
+  s.m_impl = std::make_shared<Shader::Impl>(
+    static_cast<vk::ShaderStageFlagBits>(stage),
+    device.createShaderModule(vk::ShaderModuleCreateInfo{
+      .codeSize = code.size() * sizeof(u32),
+      .pCode = code.data()
+    }
+  ));
 
   return s;
 }
@@ -67,7 +69,7 @@ Shader ShaderManager::compile(const vkr::Device& device, ShaderStage stage, cons
 str ShaderManager::stringify(const fs::path& path) const {
   std::ifstream file(path.string());
   if (!file)
-    log::panic("Failed to open {}", path.string());
+    log::error("Failed to open {}", path.string());
 
   str source = "";
   str line;

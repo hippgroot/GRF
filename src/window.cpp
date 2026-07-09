@@ -19,7 +19,7 @@ Window::Window(const Info& info) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   m_window = glfwCreateWindow(info.width, info.height, info.title.c_str(), nullptr, nullptr);
-  if (!m_window) log::panic("Failed to create window (instance: {})", m_instanceCount);
+  if (!m_window) log::error("Failed to create window (instance: {})", m_instanceCount);
 
   m_width = info.width;
   m_height = info.height;

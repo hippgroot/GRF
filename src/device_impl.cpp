@@ -2,6 +2,7 @@
 #include "internal/log.hpp"
 
 #include "GLFW/glfw3.h"
+#include "vulkan/vulkan.hpp"
 #include <vulkan/vulkan_beta.h>
 
 #include <algorithm>
@@ -95,6 +96,8 @@ Device::Impl::Impl(const Device::Info& info) {
   auto [queueFamilies, apiVersion, name] = choosePhysicalDevice();
   createDevice(queueFamilies, queryPortability);
   VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_device);
+
+  createLayouts();
 
   log::general("GRF Version: {}.{}.{}",
     GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH
@@ -233,7 +236,7 @@ Device::Impl::PDOutput Device::Impl::choosePhysicalDevice() {
   }
 
   if (validPhysicalDevices.empty())
-    log::panic("Hardware unsupported");
+    log::error("Hardware unsupported");
 
   std::ranges::sort(validPhysicalDevices, std::ranges::less{}, &PDInfo::typeRank);
   auto& chosen = validPhysicalDevices[0];
@@ -310,6 +313,20 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
   };
 
   m_device = m_physicalDevice.createDevice(createChain.get<vk::DeviceCreateInfo>());
+}
+
+void Device::Impl::createLayouts() {
+  m_setLayout = m_device.createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo{
+    .bindingCount = 0,
+    .pBindings    = nullptr
+  });
+
+  m_pipelineLayout = m_device.createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    .setLayoutCount         = 1,
+    .pSetLayouts            = &*m_setLayout,
+    .pushConstantRangeCount = 0,
+    .pPushConstantRanges    = nullptr
+  });
 }
 
 }

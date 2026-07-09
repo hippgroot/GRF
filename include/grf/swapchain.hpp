@@ -35,6 +35,10 @@ public:
   Swapchain(Swapchain&&) = delete;
   Swapchain& operator=(const Swapchain&) = delete;
   Swapchain& operator=(Swapchain&&) = delete;
+
+  Format format() const;
+  ColorSpace colorspace() const;
+  bool vsync() const;
 };
 
 }

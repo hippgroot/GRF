@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace grf {
 
@@ -93,10 +94,6 @@ enum class Format : i32 {
   bc7_srgb_block          = 146
 };
 
-// Mirrors vk::ColorSpaceKHR — values match VkColorSpaceKHR exactly so a
-// static_cast is a valid conversion in either direction. srgb_nonlinear is
-// the only core value; the rest require the VK_EXT_swapchain_colorspace
-// instance extension.
 enum class ColorSpace : i32 {
   srgb_nonlinear          = 0,
 
@@ -241,10 +238,105 @@ enum class Key : u16 {
 };
 
 enum class ShaderStage {
-  Vertex,
-  Fragment,
-  Compute,
-  Mesh
+  Vertex    = 1,
+  Fragment  = 16,
+  Compute   = 32
+};
+
+enum class Topology {
+  PointList     = 0,
+  LineList      = 1,
+  LineStrip     = 2,
+  TriangleList  = 3,
+  TriangleStrip = 4,
+  TriangleFan   = 5
+};
+
+enum class PolygonMode {
+  Fill  = 0,
+  Line  = 1,
+  Point = 2
+};
+
+enum class CullMode {
+  None          = 0,
+  Front         = 1,
+  Back          = 2,
+  FrontAndBack  = 3
+};
+
+enum class FrontFace {
+  CounterClockwise  = 0,
+  Clockwise         = 1
+};
+
+enum class CompareOp {
+  Never           = 0,
+  Less            = 1,
+  Equal           = 2,
+  LessOrEqual     = 3,
+  Greater         = 4,
+  NotEqual        = 5,
+  GreaterOrEqual  = 6,
+  Always          = 7
+};
+
+enum class BlendFactor {
+  Zero                  = 0,
+  One                   = 1,
+  SrcColor              = 2,
+  OneMinusSrcColor      = 3,
+  DstColor              = 4,
+  OneMinusDstColor      = 5,
+  SrcAlpha              = 6,
+  OneMinusSrcAlpha      = 7,
+  DstAlpha              = 8,
+  OneMinusDstAlpha      = 9,
+  ConstantColor         = 10,
+  OneMinusConstantColor = 11,
+  ConstantAlpha         = 12,
+  OneMinusConstantAlpha = 13,
+  SrcAlphaSaturate      = 14
+};
+
+enum class BlendOp {
+  Add             = 0,
+  Subtract        = 1,
+  ReverseSubtract = 2,
+  Min             = 3,
+  Max             = 4
+};
+
+enum class SampleCount {
+  e1  = 1,
+  e2  = 2,
+  e4  = 4,
+  e8  = 8,
+  e16 = 16
+};
+
+struct BlendState {
+  bool        enable          = false;
+  BlendFactor srcColorFactor  = BlendFactor::One;
+  BlendFactor dstColorFactor  = BlendFactor::Zero;
+  BlendOp     colorOp         = BlendOp::Add;
+  BlendFactor srcAlphaFactor  = BlendFactor::One;
+  BlendFactor dstAlphaFactor  = BlendFactor::Zero;
+  BlendOp     alphaOp         = BlendOp::Add;
+};
+
+struct GraphicsPipelineSettings {
+  std::vector<Format>     colorFormats;
+  Format                  depthFormat     = Format::undefined;
+  Topology                topology        = Topology::TriangleList;
+  PolygonMode             polygonMode     = PolygonMode::Fill;
+  CullMode                cullMode        = CullMode::Back;
+  FrontFace               frontFace       = FrontFace::CounterClockwise;
+  bool                    depthTest       = false;
+  bool                    depthWrite      = false;
+  CompareOp               depthCompareOp  = CompareOp::Less;
+  std::vector<BlendState> blends;
+  SampleCount             sampleCount     = SampleCount::e1;
 };
 
 }

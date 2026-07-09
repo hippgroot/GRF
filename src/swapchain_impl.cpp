@@ -57,7 +57,7 @@ void Swapchain::Impl::unregisterWindow() {
 void Swapchain::Impl::createSurface(const vkr::Instance& instance) {
   vk::SurfaceKHR::CType cSurface;
   if (glfwCreateWindowSurface(*instance, m_window->m_window, nullptr, &cSurface) != VK_SUCCESS)
-    log::panic("Failed to create window surface");
+    log::error("Failed to create window surface");
 
   m_surface = vkr::SurfaceKHR(instance, cSurface);
 }
