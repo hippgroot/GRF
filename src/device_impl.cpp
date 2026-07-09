@@ -2,9 +2,6 @@
 #include "internal/log.hpp"
 
 #include "GLFW/glfw3.h"
-#include "vulkan/vulkan.hpp"
-#include "vulkan/vulkan_core.h"
-#include "vulkan/vulkan_hpp_macros.hpp"
 #include <vulkan/vulkan_beta.h>
 
 #include <algorithm>
@@ -82,6 +79,11 @@ u32 QueueFamilies::compute() const {
 
 u32 QueueFamilies::transfer() const {
   return m_transfer;
+}
+
+Queue::Impl::Impl(const vkr::Device& device, u32 index) : m_index(index) {
+  m_queue = device.getQueue(m_index, 0);
+  m_timeline = device.createSemaphore({});
 }
 
 Device::Impl::Impl(const Device::Info& info) {
