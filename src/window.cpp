@@ -1,7 +1,11 @@
 #include "grf/window.hpp"
 #include "internal/log.hpp"
+#include "internal/swapchain.hpp"
 
+#ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
+#endif
+
 #include "GLFW/glfw3.h"
 
 namespace grf {
@@ -12,7 +16,6 @@ Window::Window(const Info& info) {
   if (m_instanceCount++ == 0)
     glfwInit();
 
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   m_window = glfwCreateWindow(info.width, info.height, info.title.c_str(), nullptr, nullptr);
@@ -22,6 +25,7 @@ Window::Window(const Info& info) {
   m_height = info.height;
 
   glfwSetWindowUserPointer(m_window, this);
+
   glfwSetKeyCallback(m_window, [](GLFWwindow* p_window, i32 key, i32, i32 action, i32){
     if (key == GLFW_KEY_UNKNOWN) return;
     Window* window = (Window*)glfwGetWindowUserPointer(p_window);
@@ -39,10 +43,32 @@ Window::Window(const Info& info) {
       return;
     }
   });
+
+  glfwSetWindowSizeCallback(m_window, [](GLFWwindow* p_window, i32 width, i32 height){
+    if (width == 0 || height == 0) return;
+    Window* window = (Window*)glfwGetWindowUserPointer(p_window);
+    window->m_width = width;
+    window->m_height = height;
+  });
+
+  glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* p_window, i32 width, i32 height){
+    if (width == 0 || height == 0) return;
+    Window* window = (Window*)glfwGetWindowUserPointer(p_window);
+    for (const std::uintptr_t& addr : window->m_registeredSwapchains) {
+      Swapchain::Impl* swapchain = reinterpret_cast<Swapchain::Impl*>(addr);
+      swapchain->recreate(width, height);
+    }
+  });
 }
 
 Window::~Window() {
+  for (const std::uintptr_t& addr : m_registeredSwapchains) {
+    Swapchain::Impl* swapchain = reinterpret_cast<Swapchain::Impl*>(addr);
+    swapchain->unregisterWindow();
+  }
+
   glfwDestroyWindow(m_window);
+
   if (--m_instanceCount == 0)
     glfwTerminate();
 }

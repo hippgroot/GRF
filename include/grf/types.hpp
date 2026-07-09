@@ -20,6 +20,94 @@ using f64 = double;
 
 using str = std::string;
 
+enum class Format : i32 {
+  undefined               = 0,
+
+  r8_unorm                = 9,
+  r8_snorm                = 10,
+  r8_uint                 = 13,
+  r8_sint                 = 14,
+
+  rg8_unorm               = 16,
+  rg8_snorm               = 17,
+  rg8_uint                = 20,
+  rg8_sint                = 21,
+
+  rgba8_unorm             = 37,
+  rgba8_snorm             = 38,
+  rgba8_uint              = 41,
+  rgba8_sint              = 42,
+  rgba8_srgb              = 43,
+
+  bgra8_unorm             = 44,
+  bgra8_srgb              = 50,
+
+  a2bgr10_unorm_pack32    = 64,
+
+  r16_unorm               = 70,
+  r16_uint                = 74,
+  r16_sint                = 75,
+  r16_sfloat              = 76,
+
+  rg16_unorm              = 77,
+  rg16_uint               = 81,
+  rg16_sint               = 82,
+  rg16_sfloat             = 83,
+
+  rgba16_unorm            = 91,
+  rgba16_uint             = 95,
+  rgba16_sint             = 96,
+  rgba16_sfloat           = 97,
+
+  r32_uint                = 98,
+  r32_sint                = 99,
+  r32_sfloat              = 100,
+  rg32_uint               = 101,
+  rg32_sint               = 102,
+  rg32_sfloat             = 103,
+  rgb32_uint              = 104,
+  rgb32_sint              = 105,
+  rgb32_sfloat            = 106,
+  rgba32_uint             = 107,
+  rgba32_sint             = 108,
+  rgba32_sfloat           = 109,
+
+  b10g11r11_ufloat_pack32 = 122,
+
+  d16_unorm               = 124,
+  d32_sfloat              = 126,
+  d24_unorm_s8_uint       = 129,
+  d32_sfloat_s8_uint      = 130,
+
+  bc1_rgba_unorm_block    = 133,
+  bc1_rgba_srgb_block     = 134,
+  bc3_unorm_block         = 137,
+  bc3_srgb_block          = 138,
+  bc4_unorm_block         = 139,
+  bc4_snorm_block         = 140,
+  bc5_unorm_block         = 141,
+  bc5_snorm_block         = 142,
+  bc6h_ufloat_block       = 143,
+  bc6h_sfloat_block       = 144,
+  bc7_unorm_block         = 145,
+  bc7_srgb_block          = 146
+};
+
+// Mirrors vk::ColorSpaceKHR — values match VkColorSpaceKHR exactly so a
+// static_cast is a valid conversion in either direction. srgb_nonlinear is
+// the only core value; the rest require the VK_EXT_swapchain_colorspace
+// instance extension.
+enum class ColorSpace : i32 {
+  srgb_nonlinear          = 0,
+
+  display_p3_nonlinear    = 1000104001,
+  extended_srgb_linear    = 1000104002,
+  display_p3_linear       = 1000104003,
+  hdr10_st2084            = 1000104008,
+  hdr10_hlg               = 1000104010,
+  extended_srgb_nonlinear = 1000104014
+};
+
 enum class Key : u16 {
   Space         = 32,
   Apostrophe    = 39,

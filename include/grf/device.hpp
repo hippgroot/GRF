@@ -7,6 +7,8 @@
 namespace grf {
 
 class Device {
+  friend class Swapchain;
+
 public:
   struct Info{
     str applicationName;

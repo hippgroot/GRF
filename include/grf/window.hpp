@@ -3,12 +3,15 @@
 #include "./types.hpp"
 
 #include <bitset>
+#include <set>
 
 class GLFWwindow;
 
 namespace grf {
 
 class Window {
+  friend class Swapchain;
+
 public:
   struct Info {
     u32 width;
@@ -19,12 +22,13 @@ public:
 private:
   static u32  m_instanceCount;
 
-  GLFWwindow*       m_window = nullptr;
-  u32               m_width = 0;
-  u32               m_height = 0;
-  std::bitset<349>  m_pressed;
-  std::bitset<349>  m_justPressed;
-  std::bitset<349>  m_justReleased;
+  GLFWwindow*               m_window = nullptr;
+  u32                       m_width = 1280;
+  u32                       m_height = 720;
+  std::bitset<349>          m_pressed;
+  std::bitset<349>          m_justPressed;
+  std::bitset<349>          m_justReleased;
+  std::set<std::uintptr_t>  m_registeredSwapchains;
 
 public:
   explicit Window(const Info& _ = Info{

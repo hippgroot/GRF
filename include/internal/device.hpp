@@ -1,6 +1,6 @@
 #pragma once
 
-#include "grf/grf.hpp"
+#include "grf/device.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -27,6 +27,8 @@ public:
 };
 
 class Device::Impl {
+  friend class Swapchain;
+
   using PDOutput = std::tuple<QueueFamilies, u32, str>;
 
   vkr::Context        m_context;
