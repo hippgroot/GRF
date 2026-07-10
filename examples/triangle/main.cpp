@@ -1,4 +1,5 @@
 #include "grf/device.hpp"
+#include "grf/queue.hpp"
 #include "grf/swapchain.hpp"
 #include "grf/window.hpp"
 
@@ -38,8 +39,37 @@ int main() {
   );
 
   auto cmdRing = queue.getCmdRing(_flightFrames);
+  auto syncRing = queue.getSyncRing(_flightFrames);
 
   while (!window.shouldClose() && !window.isJustPressed(grf::Key::Escape)) {
     window.pollEvents();
+
+    auto& sync = syncRing.next();
+    device.wait({ sync });
+
+    auto& cmd = cmdRing.next();
+
+    auto [renderTarget, imgSync] = swapchain.acquireNextImage();
+    ColorAttachment renderTargetAttachment{
+      .img      = renderTarget,
+      .loadOp   = LoadOp::Clear,
+      .storeOp  = StoreOp::Store
+    };
+
+    cmd.begin();
+    cmd.transition(renderTarget, Layout::Undefined, Layout::ColorAttachmentOptimal);
+    cmd.beginRendering(renderTarget.width(), renderTarget.height(), { renderTargetAttachment });
+
+    cmd.bindPipeline(pipeline);
+    cmd.draw(3);
+
+    cmd.endRendering();
+    cmd.transition(renderTarget, Layout::ColorAttachmentOptimal, Layout::PresentSrc);
+    cmd.end();
+
+    sync = queue.submit({ cmd }, { imgSync });
+    queue.present(renderTarget, { sync });
   }
+
+  device.waitIdle();
 }

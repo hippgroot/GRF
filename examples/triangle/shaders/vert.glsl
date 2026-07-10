@@ -6,9 +6,9 @@ layout(location = 0) out vec3 _Albedo;
 
 void main() {
   const vec2 positions[3] = vec2[](
-    vec2(-0.5, -0.5),
-    vec2(0.5, -0.5),
-    vec2(0.0, 0.5)
+    vec2(-0.5, 0.5),
+    vec2(0.5, 0.5),
+    vec2(0.0, -0.5)
   );
 
   const vec2 uvs[3] = vec2[](
