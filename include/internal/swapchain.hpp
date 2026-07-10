@@ -4,11 +4,54 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
+#include <functional>
+
 namespace vkr = vk::raii;
 
 class GLFWwindow;
 
 namespace grf {
+
+class SwapchainImage::Impl {
+  friend class SwapchainImage;
+
+public:
+  struct Info {
+    vk::SwapchainKHR  swapchain;
+    vk::Image         image;
+    u32               index;
+    vk::Format        format;
+    u32               width;
+    u32               height;
+  };
+
+  std::function<void()> flagSwapchainForRecreation;
+
+private:
+  vk::SwapchainKHR      m_swapchain = nullptr;
+  vk::Image             m_image = nullptr;
+  vkr::ImageView        m_view = nullptr;
+  vkr::Semaphore        m_semaphore = nullptr;
+  u32                   m_index = 0;
+  Format                m_format = Format::undefined;
+  u32                   m_width = 0;
+  u32                   m_height = 0;
+
+public:
+  Impl(const vkr::Device&, const Info&);
+  ~Impl() = default;
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+
+  vk::SwapchainKHR swapchain() const;
+  vk::Image image() const;
+  vk::ImageView view() const;
+  vk::Semaphore semaphore() const;
+  u32 index() const;
+};
 
 class Swapchain::Impl {
   friend class Swapchain;
@@ -19,12 +62,14 @@ class Swapchain::Impl {
 
   vkr::SurfaceKHR             m_surface = nullptr;
   vkr::SwapchainKHR           m_swapchain = nullptr;
-  std::vector<vk::Image>      m_images;
-  std::vector<vkr::ImageView> m_views;
+  std::vector<SwapchainImage> m_images;
+  std::vector<vkr::Semaphore> m_semaphores;
   vk::SurfaceFormatKHR        m_surfaceFormat;
   vk::PresentModeKHR          m_presentMode;
   vk::Extent2D                m_extent;
-  u32                         m_minImageCount;
+  u32                         m_minImageCount = 1;
+  u32                         m_semaphoreIndex = 0;
+  bool                        m_dirty = false;
 
 public:
   Impl(const Device&, Window&, const Swapchain::Info&);
@@ -42,7 +87,7 @@ private:
   void createSurface(const vkr::Instance&);
   vk::SurfaceCapabilitiesKHR processInfo(const Swapchain::Info&);
   void createSwapchain(const vk::SurfaceCapabilitiesKHR&);
-  void createViews();
+  void createImages();
 };
 
 }

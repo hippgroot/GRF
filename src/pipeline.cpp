@@ -9,7 +9,17 @@ Shader::Impl::Impl(vk::ShaderStageFlagBits stage, vkr::ShaderModule&& module)
 : m_stage(stage), m_module(std::move(module))
 {}
 
-Pipeline::Impl::Impl(vkr::Pipeline&& pipeline) : m_pipeline(std::move(pipeline)) {}
+Pipeline::Impl::Impl(PipelineType type, vkr::Pipeline&& pipeline)
+: m_type(type), m_pipeline(std::move(pipeline))
+{}
+
+PipelineType Pipeline::Impl::type() const {
+  return m_type;
+}
+
+vk::Pipeline Pipeline::Impl::pipeline() const {
+  return *m_pipeline;
+}
 
 ShaderManager::ShaderManager() {
   m_opts.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_4);

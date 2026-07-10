@@ -8,6 +8,8 @@
 
 namespace grf {
 
+class SwapchainImage;
+
 using i8 = std::int8_t;
 using i16 = std::int16_t;
 using i32 = std::int32_t;
@@ -315,6 +317,28 @@ enum class SampleCount {
   e4  = 4,
   e8  = 8,
   e16 = 16
+};
+
+enum class Layout {
+  Undefined               = 0,
+  General                 = 1,
+  ColorAttachmentOptimal  = 2,
+  ShaderReadOptimal       = 5,
+  TransferSrcOptimal      = 6,
+  TransferDstOptimal      = 7,
+  DepthAttachmentOptimal  = 1000241000,
+  PresentSrc              = 1000001002
+};
+
+enum class LoadOp {
+  Load      = 0,
+  Clear     = 1,
+  DontCare  = 2
+};
+
+enum class StoreOp {
+  Store     = 0,
+  DontCare  = 1
 };
 
 struct BlendState {

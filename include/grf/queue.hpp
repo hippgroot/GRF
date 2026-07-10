@@ -1,15 +1,25 @@
 #pragma once
 
-#include "./types.hpp"
+#include "./swapchain.hpp"
 
 #include <memory>
+#include <span>
 
 namespace grf {
 
+class Pipeline;
+
+struct ColorAttachment {
+  SwapchainImage        img;
+  LoadOp                loadOp     = LoadOp::Load;
+  StoreOp               storeOp    = StoreOp::Store;
+  std::array<float, 4>  clearValue = { 0.0f, 0.0f, 0.0f, 1.0f };
+};
 
 class Sync {
   friend class Device;
   friend class Queue;
+  friend class Swapchain;
 
   class Impl;
   std::shared_ptr<Impl> m_impl;
@@ -40,6 +50,16 @@ public:
   CommandBuffer& operator=(const CommandBuffer&) = default;
   CommandBuffer& operator=(CommandBuffer&&) = default;
 
+  void begin() const;
+  void end() const;
+  void beginRendering(u32, u32, const std::vector<ColorAttachment>&) const;
+  void endRendering() const;
+
+  void bindPipeline(const Pipeline&) const;
+  void draw(u32) const;
+
+  void transition(const SwapchainImage&, Layout, Layout) const;
+
 private:
   CommandBuffer() = default;
 };
@@ -61,6 +81,7 @@ public:
   Ring<CommandBuffer> getCmdRing(u32) const;
   Ring<Sync> getSyncRing(u32) const;
   Sync submit(const std::vector<CommandBuffer>&, const std::vector<Sync>& waits = {}) const;
+  void present(const SwapchainImage&, const std::vector<Sync>& waits) const;
 
 private:
   Queue() = default;

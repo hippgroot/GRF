@@ -39,7 +39,6 @@ add_library(grf
   ${GRF_SOURCE_DIR}/pipeline.cpp
   ${GRF_SOURCE_DIR}/queue.cpp
   ${GRF_SOURCE_DIR}/swapchain.cpp
-  ${GRF_SOURCE_DIR}/swapchain_impl.cpp
   ${GRF_SOURCE_DIR}/window.cpp
 )
 

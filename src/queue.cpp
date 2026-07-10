@@ -1,5 +1,8 @@
 #include "internal/log.hpp"
+#include "internal/pipeline.hpp"
 #include "internal/queue.hpp"
+#include "internal/swapchain.hpp"
+#include "vulkan/vulkan.hpp"
 
 namespace grf {
 
@@ -24,6 +27,97 @@ u64 Sync::Impl::value() const {
 
 SyncType Sync::Impl::type() const {
   return m_type;
+}
+
+void CommandBuffer::begin() const {
+  m_impl->m_cmd.reset();
+  m_impl->m_cmd.begin({});
+}
+
+void CommandBuffer::end() const {
+  m_impl->m_cmd.end();
+}
+
+void CommandBuffer::beginRendering(
+  u32 width, u32 height, const std::vector<ColorAttachment>& colors
+) const {
+  std::vector<vk::RenderingAttachmentInfo> colorInfos;
+  colorInfos.reserve(colors.size());
+  for (const auto& c : colors) {
+    vk::ClearValue cv{ .color = vk::ClearColorValue(c.clearValue) };
+    colorInfos.push_back(vk::RenderingAttachmentInfo{
+      .imageView   = c.img.m_impl->view(),
+      .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+      .loadOp      = static_cast<vk::AttachmentLoadOp>(c.loadOp),
+      .storeOp     = static_cast<vk::AttachmentStoreOp>(c.storeOp),
+      .clearValue  = cv
+    });
+  }
+
+  vk::Rect2D area{
+    .offset = { 0, 0 },
+    .extent = { width, height }
+  };
+
+  m_impl->m_cmd.beginRendering(vk::RenderingInfo{
+    .renderArea           = area,
+    .layerCount           = 1,
+    .colorAttachmentCount = static_cast<uint32_t>(colorInfos.size()),
+    .pColorAttachments    = colorInfos.data(),
+    .pDepthAttachment     = nullptr
+  });
+
+  vk::Viewport viewport{
+    .x        = 0.0f,
+    .y        = 0.0f,
+    .width    = static_cast<f32>(width),
+    .height   = static_cast<f32>(height),
+    .minDepth = 0.0f,
+    .maxDepth = 1.0f
+  };
+
+  m_impl->m_cmd.setViewport(0, viewport);
+  m_impl->m_cmd.setScissor(0, area);
+}
+
+void CommandBuffer::endRendering() const {
+  m_impl->m_cmd.endRendering();
+}
+
+void CommandBuffer::bindPipeline(const Pipeline& pipeline) const {
+  vk::PipelineBindPoint bindPoint = pipeline.m_impl->type() == PipelineType::Graphics ?
+    vk::PipelineBindPoint::eGraphics : vk::PipelineBindPoint::eCompute;
+
+  m_impl->m_cmd.bindPipeline(
+    bindPoint,
+    pipeline.m_impl->pipeline()
+  );
+}
+
+void CommandBuffer::draw(u32 vertexCount) const {
+  m_impl->m_cmd.draw(vertexCount, 1, 0, 0);
+}
+
+void CommandBuffer::transition(const SwapchainImage& image, Layout from, Layout to) const {
+  vk::ImageMemoryBarrier2 barrier{
+    .srcStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
+    .srcAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    .dstStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
+    .dstAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    .oldLayout        = static_cast<vk::ImageLayout>(from),
+    .newLayout        = static_cast<vk::ImageLayout>(to),
+    .image            = image.m_impl->image(),
+    .subresourceRange = {
+      .aspectMask = vk::ImageAspectFlagBits::eColor,
+      .levelCount = 1,
+      .layerCount = 1
+    }
+  };
+
+  m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
+    .imageMemoryBarrierCount  = 1,
+    .pImageMemoryBarriers     = &barrier
+  });
 }
 
 CommandBuffer::Impl::Impl(vkr::CommandBuffer&& cmd) : m_cmd(std::move(cmd)) {}
@@ -110,6 +204,47 @@ Sync Queue::submit(const std::vector<CommandBuffer>& cmds, const std::vector<Syn
   });
 
   return signal;
+}
+
+void Queue::present(const SwapchainImage& image, const std::vector<Sync>& syncs) const {
+  std::vector<vk::SemaphoreSubmitInfo> waitInfos;
+  waitInfos.reserve(syncs.size());
+  for (const auto& sync : syncs) {
+    waitInfos.emplace_back(vk::SemaphoreSubmitInfo{
+      .semaphore  = sync.m_impl->semaphore(),
+      .value      = sync.m_impl->value(),
+      .stageMask  = vk::PipelineStageFlagBits2::eAllCommands
+    });
+  }
+
+  vk::SemaphoreSubmitInfo signalInfo{
+    .semaphore  = image.m_impl->semaphore(),
+    .stageMask  = vk::PipelineStageFlagBits2::eAllCommands
+  };
+
+  vk::Semaphore semaphore = image.m_impl->semaphore();
+  vk::SwapchainKHR swapchain = image.m_impl->swapchain();
+  u32 index = image.m_impl->index();
+
+  std::lock_guard lock(m_impl->m_mutex);
+
+  m_impl->m_queue.submit2(vk::SubmitInfo2{
+    .waitSemaphoreInfoCount   = static_cast<u32>(waitInfos.size()),
+    .pWaitSemaphoreInfos      = waitInfos.data(),
+    .signalSemaphoreInfoCount = 1,
+    .pSignalSemaphoreInfos    = &signalInfo
+  });
+
+  auto res = m_impl->m_queue.presentKHR(vk::PresentInfoKHR{
+    .waitSemaphoreCount = 1,
+    .pWaitSemaphores    = &semaphore,
+    .swapchainCount     = 1,
+    .pSwapchains        = &swapchain,
+    .pImageIndices      = &index
+  });
+
+  if (res == vk::Result::eSuboptimalKHR)
+    image.m_impl->flagSwapchainForRecreation();
 }
 
 Queue::Impl::Impl(const vkr::Device& device, u32 index)

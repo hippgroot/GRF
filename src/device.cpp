@@ -49,6 +49,10 @@ void Device::wait(const std::vector<Sync>& syncs, u64 timeout) const {
     log::error("Hung waiting for syncs");
 }
 
+void Device::waitIdle() const {
+  m_impl->m_device.waitIdle();
+}
+
 Shader Device::compileGlslShader(ShaderStage stage, const fs::path& path) const {
   return m_impl->m_shaderManager.compile(m_impl->m_device, stage, path);
 }
@@ -61,7 +65,7 @@ Pipeline Device::createComputePipeline(const Shader& shader) const {
   }
 
   Pipeline pipeline;
-  pipeline.m_impl = std::make_shared<Pipeline::Impl>(
+  pipeline.m_impl = std::make_shared<Pipeline::Impl>(PipelineType::Compute,
     m_impl->m_device.createComputePipeline(nullptr, vk::ComputePipelineCreateInfo{
       .stage = {
         .stage  = shader.m_impl->m_stage,
@@ -214,7 +218,7 @@ Pipeline Device::createGraphicsPipeline(
   };
 
   Pipeline pipeline;
-  pipeline.m_impl = std::make_shared<Pipeline::Impl>(
+  pipeline.m_impl = std::make_shared<Pipeline::Impl>(PipelineType::Graphics,
     m_impl->m_device.createGraphicsPipeline(nullptr, chain.get<vk::GraphicsPipelineCreateInfo>())
   );
 

@@ -24,6 +24,7 @@ private:
 };
 
 class Pipeline {
+  friend class CommandBuffer;
   friend class Device;
 
   class Impl;

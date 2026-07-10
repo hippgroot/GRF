@@ -41,6 +41,7 @@ public:
   const Queue& computeQueue() const;
 
   void wait(const std::vector<Sync>&, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
+  void waitIdle() const;
 
   Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
   Pipeline createComputePipeline(const Shader&) const;

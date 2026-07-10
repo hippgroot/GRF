@@ -13,6 +13,11 @@ namespace fs = std::filesystem;
 
 namespace grf {
 
+enum class PipelineType {
+  Graphics,
+  Compute
+};
+
 class Shader::Impl {
   friend class Device;
   friend class Shader;
@@ -34,15 +39,19 @@ class Pipeline::Impl {
   friend class Pipeline;
 
   vkr::Pipeline m_pipeline = nullptr;
+  PipelineType  m_type = PipelineType::Graphics;
 
 public:
-  explicit Impl(vkr::Pipeline&&);
+  explicit Impl(PipelineType, vkr::Pipeline&&);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
   Impl(Impl&&) = delete;
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
+
+  PipelineType type() const;
+  vk::Pipeline pipeline() const;
 };
 
 class ShaderManager {
