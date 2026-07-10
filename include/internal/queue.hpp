@@ -10,6 +10,33 @@ namespace vkr = vk::raii;
 
 namespace grf {
 
+enum class SyncType {
+  Timeline,
+  Binary
+};
+
+class Sync::Impl {
+  friend class Sync;
+
+  vk::Semaphore m_semaphore = nullptr;
+  u64           m_value = 0;
+  SyncType      m_type = SyncType::Timeline;
+
+public:
+  explicit Impl(vk::Semaphore);
+  Impl(vk::Semaphore, u64);
+  ~Impl() = default;
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+
+  vk::Semaphore semaphore() const;
+  u64 value() const;
+  SyncType type() const;
+};
+
 class CommandBuffer::Impl {
   friend class CommandBuffer;
 
@@ -23,6 +50,8 @@ public:
   Impl(Impl&&) = delete;
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
+
+  const vkr::CommandBuffer& commandBuffer() const;
 };
 
 class Queue::Impl {

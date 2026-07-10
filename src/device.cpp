@@ -1,5 +1,6 @@
 #include "internal/device.hpp"
 #include "internal/log.hpp"
+#include "internal/queue.hpp"
 
 namespace fs = std::filesystem;
 
@@ -15,6 +16,37 @@ const Queue& Device::graphicsQueue() const {
 
 const Queue& Device::computeQueue() const {
   return m_impl->m_computeQueue;
+}
+
+void Device::wait(const std::vector<Sync>& syncs, u64 timeout) const {
+  if (syncs.empty()) {
+    log::warning("submitted 0 syncs to wait on");
+    return;
+  }
+
+  std::vector<vk::Semaphore> semaphores;
+  semaphores.reserve(syncs.size());
+
+  std::vector<u64> values;
+  values.reserve(syncs.size());
+
+  for (const auto& sync : syncs) {
+    if (sync.m_impl->type() != SyncType::Timeline) continue;
+
+    semaphores.emplace_back(sync.m_impl->semaphore());
+    values.emplace_back(sync.m_impl->value());
+  }
+
+  if (semaphores.empty()) return;
+
+  vk::Result res = m_impl->m_device.waitSemaphores(vk::SemaphoreWaitInfo{
+    .semaphoreCount = static_cast<u32>(semaphores.size()),
+    .pSemaphores    = semaphores.data(),
+    .pValues        = values.data()
+  }, timeout);
+
+  if (res != vk::Result::eSuccess)
+    log::error("Hung waiting for syncs");
 }
 
 Shader Device::compileGlslShader(ShaderStage stage, const fs::path& path) const {

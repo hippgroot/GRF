@@ -5,6 +5,7 @@
 #include "./types.hpp"
 
 #include <filesystem>
+#include <limits>
 
 namespace grf {
 
@@ -38,6 +39,8 @@ public:
 
   const Queue& graphicsQueue() const;
   const Queue& computeQueue() const;
+
+  void wait(const std::vector<Sync>&, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
 
   Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
   Pipeline createComputePipeline(const Shader&) const;
