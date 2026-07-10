@@ -6,8 +6,6 @@
 #include <vulkan/vulkan_raii.hpp>
 #include <shaderc/shaderc.hpp>
 
-#include <mutex>
-
 namespace vkr = vk::raii;
 
 namespace grf {
@@ -30,43 +28,24 @@ public:
   u32 transfer() const;
 };
 
-class Queue::Impl {
-  friend class Queue;
-
-  std::mutex      m_mutex = std::mutex{};
-  u32             m_index = VK_QUEUE_FAMILY_IGNORED;
-  vkr::Queue      m_queue = nullptr;
-  vkr::Semaphore  m_timeline = nullptr;
-  u64             m_value = 0;
-
-public:
-  Impl(const vkr::Device&, u32);
-  ~Impl() = default;
-
-  Impl(const Impl&) = delete;
-  Impl(Impl&&) = delete;
-  Impl& operator=(const Impl&) = delete;
-  Impl& operator=(Impl&&) = delete;
-};
-
 class Device::Impl {
   friend class Device;
   friend class Swapchain;
 
   using PDOutput = std::tuple<QueueFamilies, u32, str>;
 
-  vkr::Context        m_context;
-  vkr::Instance       m_instance = nullptr;
-  vkr::PhysicalDevice m_physicalDevice = nullptr;
-  vkr::Device         m_device = nullptr;
-  Queue               m_graphicsQueue;
-  Queue               m_computeQueue;
-  Queue               m_transferQueue;
+  vkr::Context              m_context;
+  vkr::Instance             m_instance = nullptr;
+  vkr::PhysicalDevice       m_physicalDevice = nullptr;
+  vkr::Device               m_device = nullptr;
+  Queue                     m_graphicsQueue;
+  Queue                     m_computeQueue;
+  Queue                     m_transferQueue;
 
   vkr::DescriptorSetLayout  m_setLayout = nullptr;
   vkr::PipelineLayout       m_pipelineLayout = nullptr;
 
-  ShaderManager       m_shaderManager;
+  ShaderManager             m_shaderManager;
 
 public:
   explicit Impl(const Device::Info&);

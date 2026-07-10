@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -337,6 +339,30 @@ struct GraphicsPipelineSettings {
   CompareOp               depthCompareOp  = CompareOp::Less;
   std::vector<BlendState> blends;
   SampleCount             sampleCount     = SampleCount::e1;
+};
+
+template <typename T>
+class Ring {
+  std::vector<T>  m_data;
+  u32             m_index = 0;
+
+public:
+  explicit Ring(std::vector<T> data) : m_data(std::move(data)) { validate(); }
+  Ring(u32 count, const T& init = T{}) : m_data(std::vector<T>(count, init)) { validate(); }
+
+  T& next() {
+    T& elem = m_data[m_index];
+    m_index = (m_index + 1) % m_data.size();
+    return elem;
+  }
+
+private:
+  void validate() {
+    if (m_data.empty()) {
+      std::println(stderr, "[GRF] ERROR: Ring must contain at least one element");
+      std::abort();
+    }
+  }
 };
 
 }

@@ -1,8 +1,8 @@
 #include "internal/device.hpp"
 #include "internal/log.hpp"
+#include "internal/queue.hpp"
 
 #include "GLFW/glfw3.h"
-#include "vulkan/vulkan.hpp"
 #include <vulkan/vulkan_beta.h>
 
 #include <algorithm>
@@ -82,11 +82,6 @@ u32 QueueFamilies::transfer() const {
   return m_transfer;
 }
 
-Queue::Impl::Impl(const vkr::Device& device, u32 index) : m_index(index) {
-  m_queue = device.getQueue(m_index, 0);
-  m_timeline = device.createSemaphore({});
-}
-
 Device::Impl::Impl(const Device::Info& info) {
   VULKAN_HPP_DEFAULT_DISPATCHER.init();
 
@@ -96,6 +91,10 @@ Device::Impl::Impl(const Device::Info& info) {
   auto [queueFamilies, apiVersion, name] = choosePhysicalDevice();
   createDevice(queueFamilies, queryPortability);
   VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_device);
+
+  m_graphicsQueue.m_impl = std::make_shared<Queue::Impl>(m_device, queueFamilies.graphics());
+  m_computeQueue.m_impl = std::make_shared<Queue::Impl>(m_device, queueFamilies.compute());
+  m_transferQueue.m_impl = std::make_shared<Queue::Impl>(m_device, queueFamilies.transfer());
 
   createLayouts();
 

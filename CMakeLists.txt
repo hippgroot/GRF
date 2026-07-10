@@ -23,6 +23,7 @@ add_subdirectory(external/glfw)
 add_library(grf
   ${GRF_INCLUDE_DIR}/grf/device.hpp
   ${GRF_INCLUDE_DIR}/grf/pipeline.hpp
+  ${GRF_INCLUDE_DIR}/grf/queue.hpp
   ${GRF_INCLUDE_DIR}/grf/swapchain.hpp
   ${GRF_INCLUDE_DIR}/grf/types.hpp
   ${GRF_INCLUDE_DIR}/grf/window.hpp
@@ -30,11 +31,13 @@ add_library(grf
   ${GRF_INCLUDE_DIR}/internal/device.hpp
   ${GRF_INCLUDE_DIR}/internal/log.hpp
   ${GRF_INCLUDE_DIR}/internal/pipeline.hpp
+  ${GRF_INCLUDE_DIR}/internal/queue.hpp
   ${GRF_INCLUDE_DIR}/internal/swapchain.hpp
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
   ${GRF_SOURCE_DIR}/pipeline.cpp
+  ${GRF_SOURCE_DIR}/queue.cpp
   ${GRF_SOURCE_DIR}/swapchain.cpp
   ${GRF_SOURCE_DIR}/swapchain_impl.cpp
   ${GRF_SOURCE_DIR}/window.cpp

@@ -1,6 +1,5 @@
 #include "internal/device.hpp"
 #include "internal/log.hpp"
-#include "vulkan/vulkan.hpp"
 
 namespace fs = std::filesystem;
 

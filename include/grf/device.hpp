@@ -1,29 +1,12 @@
 #pragma once
 
 #include "./pipeline.hpp"
+#include "./queue.hpp"
 #include "./types.hpp"
 
 #include <filesystem>
 
 namespace grf {
-
-class Queue {
-  friend class Device;
-
-  class Impl;
-  std::shared_ptr<Impl> m_impl;
-
-public:
-  ~Queue() = default;
-
-  Queue(const Queue&) = default;
-  Queue(Queue&&) = default;
-  Queue& operator=(const Queue&) = default;
-  Queue& operator=(Queue&&) = default;
-
-private:
-  Queue() = default;
-};
 
 class Device {
   friend class Swapchain;
