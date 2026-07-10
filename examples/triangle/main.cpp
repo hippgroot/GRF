@@ -1,38 +1,43 @@
 #include "grf/device.hpp"
 #include "grf/swapchain.hpp"
-#include "grf/types.hpp"
 #include "grf/window.hpp"
 
 namespace fs = std::filesystem;
+using namespace grf;
 
 int main() {
-  grf::Window window(grf::Window::Info{
+  const u32 _flightFrames = 2;
+
+  Window window(Window::Info{
     .width = 1280,
     .height = 720,
     .title = "GRF Example: Triangle"
   });
-  grf::Device device;
-  grf::Swapchain swapchain(device, window);
+  Device device;
+  Swapchain swapchain(device, window);
+  Queue queue = device.graphicsQueue();
 
-  grf::Shader vertShader = device.compileGlslShader(
-    grf::ShaderStage::Vertex, fs::path(SHADER_DIR) / "vert.glsl"
+  Shader vertShader = device.compileGlslShader(
+    ShaderStage::Vertex, fs::path(SHADER_DIR) / "vert.glsl"
   );
 
-  grf::Shader fragShader = device.compileGlslShader(
-    grf::ShaderStage::Fragment, fs::path(SHADER_DIR) / "frag.glsl"
+  Shader fragShader = device.compileGlslShader(
+    ShaderStage::Fragment, fs::path(SHADER_DIR) / "frag.glsl"
   );
 
-  grf::Pipeline pipeline = device.createGraphicsPipeline({ vertShader, fragShader },
-    grf::GraphicsPipelineSettings{
+  Pipeline pipeline = device.createGraphicsPipeline({ vertShader, fragShader },
+    GraphicsPipelineSettings{
       .colorFormats = { swapchain.format() },
-      .cullMode = grf::CullMode::None,
-      .blends = { grf::BlendState{
+      .cullMode = CullMode::None,
+      .blends = { BlendState{
         .enable         = true,
-        .srcColorFactor = grf::BlendFactor::SrcAlpha,
-        .dstColorFactor = grf::BlendFactor::OneMinusSrcAlpha
+        .srcColorFactor = BlendFactor::SrcAlpha,
+        .dstColorFactor = BlendFactor::OneMinusSrcAlpha
       }}
     }
   );
+
+  auto cmdRing = queue.getCmdRing(_flightFrames);
 
   while (!window.shouldClose() && !window.isJustPressed(grf::Key::Escape)) {
     window.pollEvents();
