@@ -20,6 +20,8 @@ set(GLFW_BUILD_TESTS OFF)
 set(GLFW_BUILD_EXAMPLES OFF)
 add_subdirectory(external/glfw)
 
+add_subdirectory(external/vma)
+
 add_library(grf
   ${GRF_INCLUDE_DIR}/grf/device.hpp
   ${GRF_INCLUDE_DIR}/grf/pipeline.hpp
@@ -32,12 +34,14 @@ add_library(grf
   ${GRF_INCLUDE_DIR}/internal/log.hpp
   ${GRF_INCLUDE_DIR}/internal/pipeline.hpp
   ${GRF_INCLUDE_DIR}/internal/queue.hpp
+  ${GRF_INCLUDE_DIR}/internal/resources.hpp
   ${GRF_INCLUDE_DIR}/internal/swapchain.hpp
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
   ${GRF_SOURCE_DIR}/pipeline.cpp
   ${GRF_SOURCE_DIR}/queue.cpp
+  ${GRF_SOURCE_DIR}/resources.cpp
   ${GRF_SOURCE_DIR}/swapchain.cpp
   ${GRF_SOURCE_DIR}/window.cpp
 )
@@ -45,8 +49,10 @@ add_library(grf
 target_include_directories(grf PUBLIC ${GRF_INCLUDE_DIR})
 
 target_compile_definitions(grf PRIVATE
-  VULKAN_HPP_NO_CONSTRUCTORS
-  VULKAN_HPP_DISPATCH_LOADER_DYNAMIC
+  VULKAN_HPP_NO_CONSTRUCTORS=1
+  VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+  VMA_STATIC_VULKAN_FUNCTIONS=0
+  VMA_DYNAMIC_VULKAN_FUNCTIONS=1
   GRF_VERSION_MAJOR=${CMAKE_PROJECT_VERSION_MAJOR}
   GRF_VERSION_MINOR=${CMAKE_PROJECT_VERSION_MINOR}
   GRF_VERSION_PATCH=${CMAKE_PROJECT_VERSION_PATCH}
@@ -57,6 +63,7 @@ target_link_libraries(grf PRIVATE
   Vulkan::Vulkan
   Vulkan::shaderc_combined
   glfw
+  GPUOpen::VulkanMemoryAllocator
 )
 
 if(GRF_BUILD_EXAMPLES)

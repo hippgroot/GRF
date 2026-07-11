@@ -98,6 +98,13 @@ Device::Impl::Impl(const Device::Info& info) {
 
   createLayouts();
 
+  m_allocator.init(Allocator::Info{
+    .instance       = m_instance,
+    .physicalDevice = m_physicalDevice,
+    .device         = m_device,
+    .apiVersion     = apiVersion
+  });
+
   log::general("GRF Version: {}.{}.{}",
     GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH
   );

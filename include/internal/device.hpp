@@ -1,10 +1,8 @@
 #pragma once
 
 #include "grf/device.hpp"
+#include "internal/resources.hpp"
 #include "internal/pipeline.hpp"
-
-#include <vulkan/vulkan_raii.hpp>
-#include <shaderc/shaderc.hpp>
 
 namespace vkr = vk::raii;
 
@@ -45,6 +43,7 @@ class Device::Impl {
   vkr::DescriptorSetLayout  m_setLayout = nullptr;
   vkr::PipelineLayout       m_pipelineLayout = nullptr;
 
+  Allocator                 m_allocator;
   ShaderManager             m_shaderManager;
 
 public:
