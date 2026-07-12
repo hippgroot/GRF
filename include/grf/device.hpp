@@ -2,7 +2,7 @@
 
 #include "./pipeline.hpp"
 #include "./queue.hpp"
-#include "./types.hpp"
+#include "./resources.hpp"
 
 #include <filesystem>
 #include <limits>
@@ -46,6 +46,9 @@ public:
   Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
   Pipeline createComputePipeline(const Shader&) const;
   Pipeline createGraphicsPipeline(const std::vector<Shader>&, const GraphicsPipelineSettings&) const;
+
+  Buffer createBuffer(const Buffer::Info&) const;
+  Ring<Buffer> createBufferRing(u32, const Buffer::Info&) const;
 };
 
 }

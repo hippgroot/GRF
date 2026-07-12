@@ -225,4 +225,16 @@ Pipeline Device::createGraphicsPipeline(
   return pipeline;
 }
 
+Buffer Device::createBuffer(const Buffer::Info& info) const {
+  return m_impl->m_allocator.allocateBuffer(info);
+}
+
+Ring<Buffer> Device::createBufferRing(u32 count, const Buffer::Info& info) const {
+  std::vector<Buffer> buffers;
+  buffers.reserve(count);
+  for (u32 i = 0; i < count; ++i)
+    buffers.emplace_back(m_impl->m_allocator.allocateBuffer(info));
+  return Ring<Buffer>(buffers);
+}
+
 }

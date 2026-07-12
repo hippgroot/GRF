@@ -26,6 +26,7 @@ add_library(grf
   ${GRF_INCLUDE_DIR}/grf/device.hpp
   ${GRF_INCLUDE_DIR}/grf/pipeline.hpp
   ${GRF_INCLUDE_DIR}/grf/queue.hpp
+  ${GRF_INCLUDE_DIR}/grf/resources.hpp
   ${GRF_INCLUDE_DIR}/grf/swapchain.hpp
   ${GRF_INCLUDE_DIR}/grf/types.hpp
   ${GRF_INCLUDE_DIR}/grf/window.hpp

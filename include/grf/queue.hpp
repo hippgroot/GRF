@@ -3,7 +3,6 @@
 #include "./swapchain.hpp"
 
 #include <memory>
-#include <span>
 
 namespace grf {
 

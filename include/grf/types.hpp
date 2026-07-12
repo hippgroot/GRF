@@ -341,6 +341,12 @@ enum class StoreOp {
   DontCare  = 1
 };
 
+enum class BufferIntent {
+  GPUOnly,
+  FrequentUpdate,
+  Readable
+};
+
 struct BlendState {
   bool        enable          = false;
   BlendFactor srcColorFactor  = BlendFactor::One;
