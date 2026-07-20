@@ -47,6 +47,11 @@ add_library(grf
   ${GRF_SOURCE_DIR}/window.cpp
 )
 
+set_source_files_properties(
+  ${GRF_SOURCE_DIR}/resources.cpp
+  PROPERTIES COMPILE_FLAGS "-Wno-nullability-completeness"
+)
+
 target_include_directories(grf PUBLIC ${GRF_INCLUDE_DIR})
 
 target_compile_definitions(grf PRIVATE
