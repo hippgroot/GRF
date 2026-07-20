@@ -39,11 +39,13 @@ class Device::Impl {
   Queue                     m_graphicsQueue;
   Queue                     m_computeQueue;
   Queue                     m_transferQueue;
+  std::set<u32>             m_uniqueIndices;
 
   vkr::DescriptorSetLayout  m_setLayout = nullptr;
   vkr::PipelineLayout       m_pipelineLayout = nullptr;
 
   Allocator                 m_allocator;
+  ResourceManager           m_resourceManager;
   ShaderManager             m_shaderManager;
 
 public:

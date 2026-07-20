@@ -347,6 +347,11 @@ enum class BufferIntent {
   Readable
 };
 
+enum class IndexType {
+  u16,
+  u32
+};
+
 struct BlendState {
   bool        enable          = false;
   BlendFactor srcColorFactor  = BlendFactor::One;
@@ -377,8 +382,15 @@ class Ring {
   u32             m_index = 0;
 
 public:
+  Ring() = default;
   explicit Ring(std::vector<T> data) : m_data(std::move(data)) { validate(); }
   Ring(u32 count, const T& init = T{}) : m_data(std::vector<T>(count, init)) { validate(); }
+  ~Ring() = default;
+
+  Ring(const Ring&) = default;
+  Ring(Ring&&) = default;
+  Ring& operator=(const Ring&) = default;
+  Ring& operator=(Ring&&) = default;
 
   T& next() {
     T& elem = m_data[m_index];

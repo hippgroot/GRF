@@ -6,6 +6,7 @@
 
 namespace grf {
 
+class Buffer;
 class Pipeline;
 
 struct ColorAttachment {
@@ -18,6 +19,7 @@ struct ColorAttachment {
 class Sync {
   friend class Device;
   friend class Queue;
+  friend class ResourceManager;
   friend class Swapchain;
 
   class Impl;
@@ -42,6 +44,7 @@ class CommandBuffer {
   std::shared_ptr<Impl> m_impl;
 
 public:
+  CommandBuffer() = default;
   ~CommandBuffer() = default;
 
   CommandBuffer(const CommandBuffer&) = default;
@@ -54,13 +57,13 @@ public:
   void beginRendering(u32, u32, const std::vector<ColorAttachment>&) const;
   void endRendering() const;
 
+  void bindIndexBuffer(const Buffer&, IndexType type = IndexType::u32) const;
   void bindPipeline(const Pipeline&) const;
   void draw(u32) const;
+  void drawIndexed(u32) const;
 
   void transition(const SwapchainImage&, Layout, Layout) const;
-
-private:
-  CommandBuffer() = default;
+  void copyBuffer(Buffer, Buffer, u32, u32, u32) const;
 };
 
 class Queue {
@@ -70,6 +73,7 @@ class Queue {
   std::shared_ptr<Impl> m_impl;
 
 public:
+  Queue() = default;
   ~Queue() = default;
 
   Queue(const Queue&) = default;
@@ -81,9 +85,6 @@ public:
   Ring<Sync> getSyncRing(u32) const;
   Sync submit(const std::vector<CommandBuffer>&, const std::vector<Sync>& waits = {}) const;
   void present(const SwapchainImage&, const std::vector<Sync>& waits) const;
-
-private:
-  Queue() = default;
 };
 
 extern template class Ring<CommandBuffer>;

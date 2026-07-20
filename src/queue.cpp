@@ -1,6 +1,7 @@
 #include "internal/log.hpp"
 #include "internal/pipeline.hpp"
 #include "internal/queue.hpp"
+#include "internal/resources.hpp"
 #include "internal/swapchain.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -84,6 +85,10 @@ void CommandBuffer::endRendering() const {
   m_impl->m_cmd.endRendering();
 }
 
+void CommandBuffer::bindIndexBuffer(const Buffer& buffer, IndexType type) const {
+  m_impl->m_cmd.bindIndexBuffer(buffer.m_impl->buffer(), 0, static_cast<vk::IndexType>(type));
+}
+
 void CommandBuffer::bindPipeline(const Pipeline& pipeline) const {
   vk::PipelineBindPoint bindPoint = pipeline.m_impl->type() == PipelineType::Graphics ?
     vk::PipelineBindPoint::eGraphics : vk::PipelineBindPoint::eCompute;
@@ -96,6 +101,10 @@ void CommandBuffer::bindPipeline(const Pipeline& pipeline) const {
 
 void CommandBuffer::draw(u32 vertexCount) const {
   m_impl->m_cmd.draw(vertexCount, 1, 0, 0);
+}
+
+void CommandBuffer::drawIndexed(u32 count) const {
+  m_impl->m_cmd.drawIndexed(count, 1, 0, 0, 0);
 }
 
 void CommandBuffer::transition(const SwapchainImage& image, Layout from, Layout to) const {
@@ -117,6 +126,14 @@ void CommandBuffer::transition(const SwapchainImage& image, Layout from, Layout 
   m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
     .imageMemoryBarrierCount  = 1,
     .pImageMemoryBarriers     = &barrier
+  });
+}
+
+void CommandBuffer::copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOffset, u32 size) const {
+  m_impl->m_cmd.copyBuffer(src.m_impl->buffer(), dst.m_impl->buffer(), vk::BufferCopy{
+    .srcOffset  = srcOffset,
+    .dstOffset  = dstOffset,
+    .size       = size
   });
 }
 

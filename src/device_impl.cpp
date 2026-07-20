@@ -96,6 +96,10 @@ Device::Impl::Impl(const Device::Info& info) {
   m_computeQueue.m_impl = std::make_shared<Queue::Impl>(m_device, queueFamilies.compute());
   m_transferQueue.m_impl = std::make_shared<Queue::Impl>(m_device, queueFamilies.transfer());
 
+  m_uniqueIndices = std::set<u32>{
+    queueFamilies.graphics(), queueFamilies.compute(), queueFamilies.transfer()
+  };
+
   createLayouts();
 
   m_allocator.init(Allocator::Info{
@@ -104,6 +108,18 @@ Device::Impl::Impl(const Device::Info& info) {
     .device         = m_device,
     .apiVersion     = apiVersion
   });
+
+  std::vector<Buffer> buffers;
+  buffers.reserve(info.stagingCount);
+  for (u32 i = 0; i < info.stagingCount; ++i) {
+    Buffer buffer = m_allocator.allocateBuffer(Buffer::Info{
+      .size   = info.stagingSize_MB * 1024u * 1024u,
+      .intent = BufferIntent::FrequentUpdate
+    }, m_uniqueIndices);
+    buffer.m_impl->setResourceManager(&m_resourceManager);
+    buffers.emplace_back(buffer);
+  }
+  m_resourceManager.init(&m_device, m_transferQueue, Ring<Buffer>(buffers), info.stagingCount);
 
   log::general("GRF Version: {}.{}.{}",
     GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH

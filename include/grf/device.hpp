@@ -14,10 +14,12 @@ class Device {
 
 public:
   struct Info{
-    str applicationName;
-    u32 applicationVersion;
-    str engineName;
+    str applicationName = "GRF Application";
+    u32 applicationVersion = 1;
+    str engineName = "GRF";
     u32 engineVersion;
+    u32 stagingSize_MB = 64;
+    u32 stagingCount = 2;
   };
 
 private:
@@ -28,7 +30,9 @@ public:
   explicit Device(const Info& info = Info{
     .applicationName    = "GRF Application",
     .applicationVersion = 1,
-    .engineName         = "GRF"
+    .engineName         = "GRF",
+    .stagingSize_MB     = 64,
+    .stagingCount       = 2
   });
   ~Device();
 
@@ -42,6 +46,7 @@ public:
 
   void wait(const std::vector<Sync>&, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
   void waitIdle() const;
+  Sync updateResources() const;
 
   Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
   Pipeline createComputePipeline(const Shader&) const;

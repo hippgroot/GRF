@@ -53,6 +53,10 @@ void Device::waitIdle() const {
   m_impl->m_device.waitIdle();
 }
 
+Sync Device::updateResources() const {
+  return m_impl->m_resourceManager.flush();
+}
+
 Shader Device::compileGlslShader(ShaderStage stage, const fs::path& path) const {
   return m_impl->m_shaderManager.compile(m_impl->m_device, stage, path);
 }
@@ -226,14 +230,20 @@ Pipeline Device::createGraphicsPipeline(
 }
 
 Buffer Device::createBuffer(const Buffer::Info& info) const {
-  return m_impl->m_allocator.allocateBuffer(info);
+  Buffer buffer = m_impl->m_allocator.allocateBuffer(info, m_impl->m_uniqueIndices);
+  buffer.m_impl->setResourceManager(&m_impl->m_resourceManager);
+  return buffer;
 }
 
 Ring<Buffer> Device::createBufferRing(u32 count, const Buffer::Info& info) const {
   std::vector<Buffer> buffers;
   buffers.reserve(count);
-  for (u32 i = 0; i < count; ++i)
-    buffers.emplace_back(m_impl->m_allocator.allocateBuffer(info));
+  for (u32 i = 0; i < count; ++i) {
+    Buffer buffer = m_impl->m_allocator.allocateBuffer(info, m_impl->m_uniqueIndices);
+    buffer.m_impl->setResourceManager(&m_impl->m_resourceManager);
+    buffers.emplace_back(buffer);
+  }
+
   return Ring<Buffer>(buffers);
 }
 
