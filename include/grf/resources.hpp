@@ -48,7 +48,7 @@ public:
   template <typename T>
     requires std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>
   T read(u32 offset = 0) const {
-    T out;
+    T out{};
     readData(std::as_writable_bytes(std::span{&out, 1}), offset);
     return out;
   }

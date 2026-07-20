@@ -3,7 +3,6 @@
 #include "internal/queue.hpp"
 #include "internal/resources.hpp"
 #include "internal/swapchain.hpp"
-#include "vulkan/vulkan.hpp"
 
 namespace grf {
 

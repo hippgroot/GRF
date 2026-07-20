@@ -32,7 +32,7 @@ void Buffer::writeData(std::span<const std::byte> data, u32 offset) const {
 }
 
 void Buffer::readData(std::span<std::byte> data, u32 offset) const {
-  if (!m_impl->m_readable) {
+  if (!m_impl->m_readable || !m_impl->m_map) {
     log::warning("Buffer readback initiated on unreadable buffer. Make sure to create buffer with BufferIntent::Readable.");
     return;
   }
