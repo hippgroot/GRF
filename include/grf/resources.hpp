@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <span>
+#include <type_traits>
 
 namespace grf {
 
@@ -44,8 +45,17 @@ public:
     writeData(std::as_bytes(std::span{data}), offset);
   }
 
+  template <typename T>
+    requires std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>
+  T read(u32 offset = 0) const {
+    T out;
+    readData(std::as_writable_bytes(std::span{&out, 1}), offset);
+    return out;
+  }
+
 private:
   void writeData(std::span<const std::byte>, u32) const;
+  void readData(std::span<std::byte>, u32) const;
 };
 
 }

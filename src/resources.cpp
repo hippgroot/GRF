@@ -31,6 +31,25 @@ void Buffer::writeData(std::span<const std::byte> data, u32 offset) const {
   m_impl->m_resourceManager->stage(*this, data, offset);
 }
 
+void Buffer::readData(std::span<std::byte> data, u32 offset) const {
+  if (!m_impl->m_readable) {
+    log::warning("Buffer readback initiated on unreadable buffer. Make sure to create buffer with BufferIntent::Readable.");
+    return;
+  }
+
+  if (data.size() + offset > m_impl->m_size) {
+    log::warning("Readback size at offset ({} + {} = {}) exceeds buffer size ({}). Readback will produce no results.",
+      data.size(),
+      offset,
+      data.size() + offset,
+      m_impl->m_size
+    );
+    return;
+  }
+
+  std::memcpy(data.data(), (std::byte*)m_impl->m_map + offset, data.size());
+}
+
 Buffer::Impl::Impl(const Info& info)
 : m_allocator(info.allocator),
   m_allocation(info.allocation),
