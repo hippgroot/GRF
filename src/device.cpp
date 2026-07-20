@@ -18,7 +18,7 @@ const Queue& Device::computeQueue() const {
   return m_impl->m_computeQueue;
 }
 
-void Device::wait(const std::vector<Sync>& syncs, u64 timeout) const {
+void Device::wait(std::span<const Sync> syncs, u64 timeout) const {
   if (syncs.empty()) {
     log::warning("submitted 0 syncs to wait on");
     return;
@@ -84,7 +84,7 @@ Pipeline Device::createComputePipeline(const Shader& shader) const {
 }
 
 Pipeline Device::createGraphicsPipeline(
-  const std::vector<Shader>& shaders, const GraphicsPipelineSettings& settings
+  std::span<const Shader> shaders, const GraphicsPipelineSettings& settings
 ) const {
   if (shaders.empty())
     log::error("graphics pipeline creation received 0 shaders");

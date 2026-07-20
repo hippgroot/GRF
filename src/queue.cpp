@@ -40,7 +40,7 @@ void CommandBuffer::end() const {
 }
 
 void CommandBuffer::beginRendering(
-  u32 width, u32 height, const std::vector<ColorAttachment>& colors
+  u32 width, u32 height, std::span<const ColorAttachment> colors
 ) const {
   std::vector<vk::RenderingAttachmentInfo> colorInfos;
   colorInfos.reserve(colors.size());
@@ -174,7 +174,7 @@ Ring<Sync> Queue::getSyncRing(u32 count) const {
   return Ring<Sync>(std::move(syncs));
 }
 
-Sync Queue::submit(const std::vector<CommandBuffer>& cmds, const std::vector<Sync>& syncs) const {
+Sync Queue::submit(std::span<const CommandBuffer> cmds, std::span<const Sync> syncs) const {
   if (cmds.empty()) {
     log::warning("Submitted 0 command buffers to queue");
     Sync err;
@@ -223,7 +223,7 @@ Sync Queue::submit(const std::vector<CommandBuffer>& cmds, const std::vector<Syn
   return signal;
 }
 
-void Queue::present(const SwapchainImage& image, const std::vector<Sync>& syncs) const {
+void Queue::present(const SwapchainImage& image, std::span<const Sync> syncs) const {
   std::vector<vk::SemaphoreSubmitInfo> waitInfos;
   waitInfos.reserve(syncs.size());
   for (const auto& sync : syncs) {

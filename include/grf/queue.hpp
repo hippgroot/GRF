@@ -3,6 +3,7 @@
 #include "./swapchain.hpp"
 
 #include <memory>
+#include <span>
 
 namespace grf {
 
@@ -54,7 +55,7 @@ public:
 
   void begin() const;
   void end() const;
-  void beginRendering(u32, u32, const std::vector<ColorAttachment>&) const;
+  void beginRendering(u32, u32, std::span<const ColorAttachment>) const;
   void endRendering() const;
 
   void bindIndexBuffer(const Buffer&, IndexType type = IndexType::u32) const;
@@ -83,8 +84,8 @@ public:
 
   Ring<CommandBuffer> getCmdRing(u32) const;
   Ring<Sync> getSyncRing(u32) const;
-  Sync submit(const std::vector<CommandBuffer>&, const std::vector<Sync>& waits = {}) const;
-  void present(const SwapchainImage&, const std::vector<Sync>& waits) const;
+  Sync submit(std::span<const CommandBuffer>, std::span<const Sync> waits = {}) const;
+  void present(const SwapchainImage&, std::span<const Sync> waits) const;
 };
 
 extern template class Ring<CommandBuffer>;

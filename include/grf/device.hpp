@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <limits>
+#include <span>
 
 namespace grf {
 
@@ -44,13 +45,13 @@ public:
   const Queue& graphicsQueue() const;
   const Queue& computeQueue() const;
 
-  void wait(const std::vector<Sync>&, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
+  void wait(std::span<const Sync>, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
   void waitIdle() const;
   Sync updateResources() const;
 
   Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
   Pipeline createComputePipeline(const Shader&) const;
-  Pipeline createGraphicsPipeline(const std::vector<Shader>&, const GraphicsPipelineSettings&) const;
+  Pipeline createGraphicsPipeline(std::span<const Shader>, const GraphicsPipelineSettings&) const;
 
   Buffer createBuffer(const Buffer::Info&) const;
   Ring<Buffer> createBufferRing(u32, const Buffer::Info&) const;
