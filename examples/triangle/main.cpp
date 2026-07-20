@@ -1,5 +1,4 @@
 #include "grf/device.hpp"
-#include "grf/queue.hpp"
 #include "grf/swapchain.hpp"
 #include "grf/window.hpp"
 
@@ -10,9 +9,9 @@ int main() {
   const u32 _flightFrames = 2;
 
   Window window(Window::Info{
-    .width = 1280,
+    .width  = 1280,
     .height = 720,
-    .title = "GRF Example: Triangle"
+    .title  = "GRF Example: Triangle"
   });
   Device device;
   Swapchain swapchain(device, window);
@@ -38,6 +37,12 @@ int main() {
     }
   );
 
+  Buffer buffer = device.createBuffer(Buffer::Info{
+    .size   = 3 * sizeof(u32),
+    .intent = BufferIntent::GPUOnly
+  });
+  buffer.write(std::vector<u32>{ 0, 1, 2 });
+
   auto cmdRing = queue.getCmdRing(_flightFrames);
   auto syncRing = queue.getSyncRing(_flightFrames);
 
@@ -61,13 +66,16 @@ int main() {
     cmd.beginRendering(renderTarget.width(), renderTarget.height(), { renderTargetAttachment });
 
     cmd.bindPipeline(pipeline);
-    cmd.draw(3);
+    cmd.bindIndexBuffer(buffer);
+    cmd.drawIndexed(3);
 
     cmd.endRendering();
     cmd.transition(renderTarget, Layout::ColorAttachmentOptimal, Layout::PresentSrc);
     cmd.end();
 
-    sync = queue.submit({ cmd }, { imgSync });
+    Sync resourceSync = device.updateResources();
+
+    sync = queue.submit({ cmd }, { imgSync, resourceSync });
     queue.present(renderTarget, { sync });
   }
 
