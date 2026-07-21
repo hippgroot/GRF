@@ -1,6 +1,8 @@
 #include "internal/log.hpp"
-#include <vulkan/vulkan_core.h>
 #include "internal/resources.hpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -78,6 +80,43 @@ void* Buffer::Impl::map() const {
 
 u32 Buffer::Impl::size() const {
   return m_size;
+}
+
+Image::Data Image::getDataFromFile(const std::filesystem::path& path, bool srgb) {
+  i32 width, height, channels;
+  Format format = Format::undefined;
+  std::byte* bytes = nullptr;
+  std::size_t size = 0;
+
+  if (stbi_is_hdr(path.string().c_str())) {
+    bytes = (std::byte*)stbi_loadf(path.string().c_str(), &width, &height, &channels, 4);
+    format = Format::rgba32_sfloat;
+    size = sizeof(f32) * 4 * width * height;
+  }
+  else if (stbi_is_16_bit(path.string().c_str())) {
+    bytes = (std::byte*)stbi_load_16(path.string().c_str(), &width, &height, &channels, 4);
+    format = Format::rgba16_unorm;
+    size = sizeof(u16) * 4 * width * height;
+  }
+  else {
+    bytes = (std::byte*)stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+    format = srgb ? Format::rgba8_srgb : Format::rgba8_unorm;
+    size = sizeof(u8) * 4 * width * height;
+  }
+
+  if (!bytes)
+    log::error("Failed to read {}: {}", path.string(), stbi_failure_reason());
+
+  Image::Data data{
+    .width  = static_cast<u32>(width),
+    .height = static_cast<u32>(height),
+    .format = format,
+    .bytes  = std::vector<std::byte>(bytes, bytes + size)
+  };
+
+  stbi_image_free(bytes);
+
+  return data;
 }
 
 u32 Image::width() const {

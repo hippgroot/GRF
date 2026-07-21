@@ -2,6 +2,7 @@
 
 #include "./types.hpp"
 
+#include <filesystem>
 #include <memory>
 #include <span>
 #include <type_traits>
@@ -72,6 +73,13 @@ public:
     bool        allocateMips = false;
   };
 
+  struct Data {
+    u32                     width;
+    u32                     height;
+    Format                  format;
+    std::vector<std::byte>  bytes;
+  };
+
 private:
   class Impl;
   std::shared_ptr<Impl> m_impl;
@@ -84,6 +92,8 @@ public:
   Image(Image&&) = default;
   Image& operator=(const Image&) = default;
   Image& operator=(Image&&) = default;
+
+  static Data getDataFromFile(const std::filesystem::path&, bool srgb = false);
 
   u32 width() const;
   u32 height() const;
