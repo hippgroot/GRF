@@ -102,7 +102,7 @@ Image::Impl::Impl(const Info& info)
   m_mips(info.mips),
   m_format(info.format)
 {
-  bool isDepth = m_format >= vk::Format::eD16Unorm && m_format <= vk::Format::eD24UnormS8Uint;
+  bool isDepth = m_format >= vk::Format::eD16Unorm && m_format <= vk::Format::eD32SfloatS8Uint;
   m_view = info.device.createImageView(vk::ImageViewCreateInfo{
     .image     = m_image,
     .viewType = info.depth > 1 ? vk::ImageViewType::e3D : vk::ImageViewType::e2D,
@@ -221,12 +221,13 @@ Buffer Allocator::allocateBuffer(const Buffer::Info& info, const std::set<u32>& 
 
 Image Allocator::allocateImage(const vkr::Device& device, const Image::Info& info, const std::set<u32>& uniqueIndices) const {
   std::vector<u32> indices(uniqueIndices.begin(), uniqueIndices.end());
+  u32 mips = info.allocateMips ? static_cast<u32>(std::floor(std::log2(std::max({info.width, info.height, info.depth})))) + 1u : 1u;
 
   vk::ImageCreateInfo imageCreateInfo{
     .imageType              = info.depth > 1 ? vk::ImageType::e3D : vk::ImageType::e2D,
     .format                 = static_cast<vk::Format>(info.format),
     .extent                 = { info.width, info.height, info.depth },
-    .mipLevels              = static_cast<u32>(!info.allocateMips),
+    .mipLevels              = mips,
     .arrayLayers            = 1,
     .samples                = vk::SampleCountFlagBits::e1,
     .tiling                 = vk::ImageTiling::eOptimal,
@@ -262,7 +263,7 @@ Image Allocator::allocateImage(const vkr::Device& device, const Image::Info& inf
     .width      = info.width,
     .height     = info.height,
     .depth      = info.depth,
-    .mips       = info.allocateMips ? static_cast<u32>(std::floor(std::log2(std::max({info.width, info.height, info.depth})))) + 1u : 0u,
+    .mips       = mips,
     .format     = imageCreateInfo.format
   });
 
