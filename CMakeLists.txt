@@ -22,6 +22,9 @@ add_subdirectory(external/glfw)
 
 add_subdirectory(external/vma)
 
+add_library(stb INTERFACE)
+target_include_directories(stb SYSTEM INTERFACE ${CMAKE_SOURCE_DIR}/external/stb)
+
 add_library(grf
   ${GRF_INCLUDE_DIR}/grf/device.hpp
   ${GRF_INCLUDE_DIR}/grf/pipeline.hpp
@@ -52,7 +55,10 @@ set_source_files_properties(
   PROPERTIES COMPILE_FLAGS "-Wno-nullability-completeness"
 )
 
-target_include_directories(grf PUBLIC ${GRF_INCLUDE_DIR})
+target_include_directories(grf
+  PUBLIC  ${GRF_INCLUDE_DIR}
+  PRIVATE ${CMAKE_SOURCE_DIR}/external/stb
+)
 
 target_compile_definitions(grf PRIVATE
   VULKAN_HPP_NO_CONSTRUCTORS=1
