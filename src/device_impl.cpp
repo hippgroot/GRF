@@ -167,8 +167,6 @@ bool Device::Impl::createInstance(const Device::Info& info) {
       extensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
       flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
       enabledPortability = true;
-
-      log::general("Portability enabled");
       break;
     }
   }
@@ -281,6 +279,7 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
     for (const auto& property : m_physicalDevice.enumerateDeviceExtensionProperties()) {
       if (strcmp(property.extensionName, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME) == 0) {
         extensions.emplace_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+        log::general("Portability enabled");
         break;
       }
     }
