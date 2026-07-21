@@ -1,4 +1,5 @@
 #include "internal/log.hpp"
+#include <vulkan/vulkan_core.h>
 #include "internal/resources.hpp"
 
 #define VMA_IMPLEMENTATION
@@ -77,6 +78,63 @@ void* Buffer::Impl::map() const {
 
 u32 Buffer::Impl::size() const {
   return m_size;
+}
+
+u32 Image::width() const {
+  return m_impl->m_width;
+}
+
+u32 Image::height() const {
+  return m_impl->m_height;
+}
+
+u32 Image::depth() const {
+  return m_impl->m_depth;
+}
+
+Image::Impl::Impl(const Info& info)
+: m_allocator(info.allocator),
+  m_allocation(info.allocation),
+  m_image(info.image),
+  m_width(info.width),
+  m_height(info.height),
+  m_depth(info.depth),
+  m_mips(info.mips),
+  m_format(info.format)
+{
+  bool isDepth = m_format >= vk::Format::eD16Unorm && m_format <= vk::Format::eD24UnormS8Uint;
+  m_view = info.device.createImageView(vk::ImageViewCreateInfo{
+    .image     = m_image,
+    .viewType = info.depth > 1 ? vk::ImageViewType::e3D : vk::ImageViewType::e2D,
+    .format   = m_format,
+    .subresourceRange = {
+      .aspectMask     = isDepth ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
+      .baseMipLevel   = 0,
+      .levelCount     = m_mips,
+      .baseArrayLayer = 0,
+      .layerCount     = 1,
+    }
+  });
+}
+
+Image::Impl::~Impl() {
+  vmaDestroyImage(m_allocator, m_image, m_allocation);
+}
+
+void Image::Impl::setResourceManager(ResourceManager* resourceManager) {
+  m_resourceManager = resourceManager;
+}
+
+VkImage Image::Impl::image() const {
+  return m_image;
+}
+
+vk::ImageView Image::Impl::view() const {
+  return *m_view;
+}
+
+u32 Image::Impl::mips() const {
+  return m_mips;
 }
 
 Allocator::~Allocator() {
@@ -159,6 +217,56 @@ Buffer Allocator::allocateBuffer(const Buffer::Info& info, const std::set<u32>& 
   });
 
   return buf;
+}
+
+Image Allocator::allocateImage(const vkr::Device& device, const Image::Info& info, const std::set<u32>& uniqueIndices) const {
+  std::vector<u32> indices(uniqueIndices.begin(), uniqueIndices.end());
+
+  vk::ImageCreateInfo imageCreateInfo{
+    .imageType              = info.depth > 1 ? vk::ImageType::e3D : vk::ImageType::e2D,
+    .format                 = static_cast<vk::Format>(info.format),
+    .extent                 = { info.width, info.height, info.depth },
+    .mipLevels              = static_cast<u32>(!info.allocateMips),
+    .arrayLayers            = 1,
+    .samples                = vk::SampleCountFlagBits::e1,
+    .tiling                 = vk::ImageTiling::eOptimal,
+    .usage                  = vk::ImageUsageFlags(static_cast<u32>(info.usage)) | vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
+    .sharingMode            = indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent,
+    .queueFamilyIndexCount  = static_cast<u32>(indices.size()),
+    .pQueueFamilyIndices    = indices.data()
+  };
+
+  VmaAllocationCreateInfo allocCreateInfo{
+    .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+  };
+
+  VkImage image;
+  VmaAllocation allocation;
+  vk::Result res = vk::Result(vmaCreateImage(
+    m_allocator,
+    reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo),
+    &allocCreateInfo,
+    &image,
+    &allocation,
+    nullptr
+  ));
+  if (res != vk::Result::eSuccess)
+    log::error("Failed to create image: {}", vk::to_string(res));
+
+  Image img;
+  img.m_impl = std::make_shared<Image::Impl>(Image::Impl::Info{
+    .device     = device,
+    .allocator  = m_allocator,
+    .allocation = allocation,
+    .image      = image,
+    .width      = info.width,
+    .height     = info.height,
+    .depth      = info.depth,
+    .mips       = info.allocateMips ? static_cast<u32>(std::floor(std::log2(std::max({info.width, info.height, info.depth})))) + 1u : 0u,
+    .format     = imageCreateInfo.format
+  });
+
+  return img;
 }
 
 void ResourceManager::init(

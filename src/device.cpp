@@ -247,4 +247,10 @@ Ring<Buffer> Device::createBufferRing(u32 count, const Buffer::Info& info) const
   return Ring<Buffer>(buffers);
 }
 
+Image Device::createImage(const Image::Info& info) const {
+  Image image = m_impl->m_allocator.allocateImage(m_impl->m_device, info, m_impl->m_uniqueIndices);
+  image.m_impl->setResourceManager(&m_impl->m_resourceManager);
+  return image;
+}
+
 }

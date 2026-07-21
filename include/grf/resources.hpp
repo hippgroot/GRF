@@ -58,4 +58,36 @@ private:
   void readData(std::span<std::byte>, u32) const;
 };
 
+class Image {
+  friend class Allocator;
+  friend class Device;
+
+public:
+  struct Info {
+    u32         width;
+    u32         height;
+    u32         depth = 1;
+    Format      format;
+    ImageUsage  usage = ImageUsage::None;
+    bool        allocateMips = false;
+  };
+
+private:
+  class Impl;
+  std::shared_ptr<Impl> m_impl;
+
+public:
+  Image() = default;
+  ~Image() = default;
+
+  Image(const Image&) = default;
+  Image(Image&&) = default;
+  Image& operator=(const Image&) = default;
+  Image& operator=(Image&&) = default;
+
+  u32 width() const;
+  u32 height() const;
+  u32 depth() const;
+};
+
 }

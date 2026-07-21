@@ -352,6 +352,14 @@ enum class IndexType {
   u32
 };
 
+enum class ImageUsage : u32 {
+  None            = 0u,
+  Sampled         = 4u,
+  Storage         = 8u,
+  ColorAttachment = 16u,
+  DepthAttachment = 32u
+};
+
 struct BlendState {
   bool        enable          = false;
   BlendFactor srcColorFactor  = BlendFactor::One;
@@ -407,4 +415,20 @@ private:
   }
 };
 
+}
+
+inline constexpr grf::ImageUsage operator|(grf::ImageUsage lhs, grf::ImageUsage rhs) {
+  return static_cast<grf::ImageUsage>(static_cast<grf::u32>(lhs) | static_cast<grf::u32>(rhs));
+}
+
+inline constexpr grf::ImageUsage operator&(grf::ImageUsage lhs, grf::ImageUsage rhs) {
+  return static_cast<grf::ImageUsage>(static_cast<grf::u32>(lhs) & static_cast<grf::u32>(rhs));
+}
+
+inline constexpr grf::ImageUsage& operator|=(grf::ImageUsage& lhs, grf::ImageUsage rhs) {
+  return lhs = lhs | rhs;
+}
+
+inline constexpr grf::ImageUsage& operator&=(grf::ImageUsage& lhs, grf::ImageUsage rhs) {
+  return lhs = lhs & rhs;
 }

@@ -54,6 +54,51 @@ public:
   u32 size() const;
 };
 
+class Image::Impl {
+  friend class Image;
+
+public:
+  struct Info {
+    const vkr::Device&  device;
+    VmaAllocator        allocator;
+    VmaAllocation       allocation;
+    VkImage             image;
+    u32                 width;
+    u32                 height;
+    u32                 depth;
+    u32                 mips;
+    vk::Format          format;
+  };
+
+private:
+  ResourceManager*  m_resourceManager = nullptr;
+  VmaAllocator      m_allocator = nullptr;
+  VmaAllocation     m_allocation  = nullptr;
+  VkImage           m_image = nullptr;
+  vkr::ImageView    m_view = nullptr;
+  u32               m_width;
+  u32               m_height;
+  u32               m_depth;
+  u32               m_mips;
+  vk::Format        m_format;
+  vk::ImageLayout   m_layout = vk::ImageLayout::eUndefined;
+
+public:
+  Impl(const Info&);
+  ~Impl();
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+
+  void setResourceManager(ResourceManager*);
+
+  VkImage image() const;
+  vk::ImageView view() const;
+  u32 mips() const;
+};
+
 class Allocator {
 public:
   struct Info {
@@ -77,6 +122,7 @@ public:
 
   void init(const Info&);
   Buffer allocateBuffer(const Buffer::Info&, const std::set<u32>&) const;
+  Image allocateImage(const vkr::Device&, const Image::Info&, const std::set<u32>&) const;
 };
 
 class ResourceManager {

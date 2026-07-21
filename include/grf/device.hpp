@@ -55,6 +55,8 @@ public:
 
   Buffer createBuffer(const Buffer::Info&) const;
   Ring<Buffer> createBufferRing(u32, const Buffer::Info&) const;
+
+  Image createImage(const Image::Info&) const;
 };
 
 }
