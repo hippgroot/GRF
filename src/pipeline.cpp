@@ -51,7 +51,7 @@ Shader ShaderManager::compile(const vkr::Device& device, ShaderStage stage, cons
     log::error("Invalid shader stage given to {}", path.string());
   }
 
-  auto result = m_compiler.CompileGlslToSpv(source, kind, path.c_str(), m_opts);
+  auto result = m_compiler.CompileGlslToSpv(source, kind, path.string().c_str(), m_opts);
 
   if (result.GetCompilationStatus() != shaderc_compilation_status_success)
     log::error("Failed to compile {}:\n{}", path.string(), result.GetErrorMessage());

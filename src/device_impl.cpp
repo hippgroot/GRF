@@ -213,21 +213,18 @@ Device::Impl::PDOutput Device::Impl::choosePhysicalDevice() {
 
     auto features = physicalDevice.getFeatures2<
       vk::PhysicalDeviceFeatures2,
-      vk::PhysicalDeviceVulkan12Features,
-      vk::PhysicalDeviceVulkan14Features
+      vk::PhysicalDeviceVulkan12Features
     >();
 
     auto f2 = features.get<vk::PhysicalDeviceFeatures2>();
     auto f12 = features.get<vk::PhysicalDeviceVulkan12Features>();
-    auto f14 = features.get<vk::PhysicalDeviceVulkan14Features>();
 
     if (
       !f2.features.shaderStorageImageReadWithoutFormat  ||
       !f2.features.shaderStorageImageWriteWithoutFormat ||
       !f12.descriptorIndexing                           ||
       !f12.shaderStorageImageArrayNonUniformIndexing    ||
-      !f12.descriptorBindingVariableDescriptorCount     ||
-      !f14.hostImageCopy
+      !f12.descriptorBindingVariableDescriptorCount
     ) continue;
 
     u8 rank;
@@ -330,7 +327,6 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
     },
     vk::PhysicalDeviceVulkan14Features{
       .dynamicRenderingLocalRead = true,
-      .hostImageCopy             = true,
     }
   };
 

@@ -67,6 +67,16 @@ target_link_libraries(grf PRIVATE
   GPUOpen::VulkanMemoryAllocator
 )
 
+if(MINGW)
+  target_link_libraries(grf PRIVATE
+    glslang
+    glslang-default-resource-limits
+    SPIRV
+    SPIRV-Tools-opt
+    SPIRV-Tools
+  )
+endif()
+
 if(GRF_BUILD_EXAMPLES)
   add_subdirectory(${CMAKE_SOURCE_DIR}/examples)
 endif()
