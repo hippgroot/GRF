@@ -1,8 +1,10 @@
+#include "grf/queue.hpp"
 #include "internal/log.hpp"
 #include "internal/pipeline.hpp"
 #include "internal/queue.hpp"
 #include "internal/resources.hpp"
 #include "internal/swapchain.hpp"
+#include <vulkan/vulkan.hpp>
 
 namespace grf {
 
@@ -106,14 +108,16 @@ void CommandBuffer::drawIndexed(u32 count) const {
   m_impl->m_cmd.drawIndexed(count, 1, 0, 0, 0);
 }
 
-void CommandBuffer::transition(const SwapchainImage& image, Layout from, Layout to) const {
+void CommandBuffer::transition(SwapchainImage image, Layout layout) const {
+  vk::ImageLayout to = static_cast<vk::ImageLayout>(layout);
+
   vk::ImageMemoryBarrier2 barrier{
     .srcStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
     .srcAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
     .dstStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
     .dstAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    .oldLayout        = static_cast<vk::ImageLayout>(from),
-    .newLayout        = static_cast<vk::ImageLayout>(to),
+    .oldLayout        = image.m_impl->layout(),
+    .newLayout        = to,
     .image            = image.m_impl->image(),
     .subresourceRange = {
       .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -126,6 +130,34 @@ void CommandBuffer::transition(const SwapchainImage& image, Layout from, Layout 
     .imageMemoryBarrierCount  = 1,
     .pImageMemoryBarriers     = &barrier
   });
+
+  image.m_impl->setLayout(to);
+}
+
+void CommandBuffer::transition(Image image, Layout layout) const  {
+  vk::ImageLayout to = static_cast<vk::ImageLayout>(layout);
+
+  vk::ImageMemoryBarrier2 barrier{
+    .srcStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
+    .srcAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    .dstStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
+    .dstAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    .oldLayout        = image.m_impl->layout(),
+    .newLayout        = to,
+    .image            = image.m_impl->image(),
+    .subresourceRange = {
+      .aspectMask = vk::ImageAspectFlagBits::eColor,
+      .levelCount = vk::RemainingMipLevels,
+      .layerCount = 1
+    }
+  };
+
+  m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
+    .imageMemoryBarrierCount  = 1,
+    .pImageMemoryBarriers     = &barrier
+  });
+
+  image.m_impl->setLayout(to);
 }
 
 void CommandBuffer::copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOffset, u32 size) const {
@@ -134,6 +166,133 @@ void CommandBuffer::copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOff
     .dstOffset  = dstOffset,
     .size       = size
   });
+}
+
+void CommandBuffer::bufferImageCopy(Buffer src, Image dst, u32 offset, u32 mip) const {
+  bool isDepth = dst.m_impl->format() >= vk::Format::eD16Unorm && dst.m_impl->format() <= vk::Format::eD32SfloatS8Uint;
+
+  vk::BufferImageCopy2 region{
+    .bufferOffset     = offset,
+    .imageSubresource = vk::ImageSubresourceLayers{
+      .aspectMask     = isDepth ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
+      .mipLevel       = mip,
+      .baseArrayLayer = 0,
+      .layerCount     = 1
+    },
+    .imageExtent = { std::max(1u, dst.width() >> mip), std::max(1u, dst.height() >> mip), std::max(1u, dst.depth() >> mip) }
+  };
+
+  m_impl->m_cmd.copyBufferToImage2(vk::CopyBufferToImageInfo2{
+    .srcBuffer      = src.m_impl->buffer(),
+    .dstImage       = dst.m_impl->image(),
+    .dstImageLayout = dst.m_impl->layout(),
+    .regionCount    = 1,
+    .pRegions       = &region
+  });
+}
+
+void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
+  u32 mips = image.m_impl->mips();
+
+  if (mips == 1) {
+    transition(image, finalLayout);
+    return;
+  }
+
+  vk::Image img = image.m_impl->image();
+
+  auto barrier = [&](
+    u32 baseMip, u32 count,
+    vk::ImageLayout from, vk::ImageLayout to,
+    vk::PipelineStageFlags2 srcStage, vk::AccessFlags2 srcAccess,
+    vk::PipelineStageFlags2 dstStage, vk::AccessFlags2 dstAccess
+  ) {
+    vk::ImageMemoryBarrier2 b{
+      .srcStageMask     = srcStage,
+      .srcAccessMask    = srcAccess,
+      .dstStageMask     = dstStage,
+      .dstAccessMask    = dstAccess,
+      .oldLayout        = from,
+      .newLayout        = to,
+      .image            = img,
+      .subresourceRange = {
+        .aspectMask   = vk::ImageAspectFlagBits::eColor,
+        .baseMipLevel = baseMip,
+        .levelCount   = count,
+        .layerCount   = 1
+      }
+    };
+
+    m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
+      .imageMemoryBarrierCount = 1,
+      .pImageMemoryBarriers    = &b
+    });
+  };
+
+  auto extent = [&](u32 mip) {
+    return vk::Offset3D{
+      static_cast<i32>(std::max(1u, image.width()  >> mip)),
+      static_cast<i32>(std::max(1u, image.height() >> mip)),
+      static_cast<i32>(std::max(1u, image.depth()  >> mip))
+    };
+  };
+
+  vk::ImageLayout curr = image.m_impl->layout();
+
+  barrier(0, 1, curr, vk::ImageLayout::eTransferSrcOptimal,
+    vk::PipelineStageFlagBits2::eAllCommands,
+    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    vk::PipelineStageFlagBits2::eTransfer,
+    vk::AccessFlagBits2::eTransferRead);
+
+  barrier(1, mips - 1, curr, vk::ImageLayout::eTransferDstOptimal,
+    vk::PipelineStageFlagBits2::eAllCommands,
+    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
+    vk::PipelineStageFlagBits2::eTransfer,
+    vk::AccessFlagBits2::eTransferWrite
+  );
+
+  for (u32 i = 1; i < mips; ++i) {
+    vk::ImageBlit2 region{
+      .srcSubresource = {
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .mipLevel   = i - 1,
+        .layerCount = 1
+      },
+      .srcOffsets = std::array{ vk::Offset3D{}, extent(i - 1) },
+      .dstSubresource = {
+        .aspectMask = vk::ImageAspectFlagBits::eColor,
+        .mipLevel   = i,
+        .layerCount = 1
+      },
+      .dstOffsets = std::array{ vk::Offset3D{}, extent(i) }
+    };
+
+    m_impl->m_cmd.blitImage2(vk::BlitImageInfo2{
+      .srcImage       = img,
+      .srcImageLayout = vk::ImageLayout::eTransferSrcOptimal,
+      .dstImage       = img,
+      .dstImageLayout = vk::ImageLayout::eTransferDstOptimal,
+      .regionCount    = 1,
+      .pRegions       = &region,
+      .filter         = vk::Filter::eLinear
+    });
+
+    barrier(i, 1,
+      vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
+      vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
+      vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferRead
+    );
+  }
+
+  barrier(0, mips,
+    vk::ImageLayout::eTransferSrcOptimal, static_cast<vk::ImageLayout>(finalLayout),
+    vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
+    vk::PipelineStageFlagBits2::eAllCommands,
+    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite
+  );
+
+  image.m_impl->setLayout(static_cast<vk::ImageLayout>(finalLayout));
 }
 
 CommandBuffer::Impl::Impl(vkr::CommandBuffer&& cmd) : m_cmd(std::move(cmd)) {}

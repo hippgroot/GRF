@@ -61,7 +61,9 @@ private:
 
 class Image {
   friend class Allocator;
+  friend class CommandBuffer;
   friend class Device;
+  friend class ResourceManager;
 
 public:
   struct Info {
@@ -98,6 +100,8 @@ public:
   u32 width() const;
   u32 height() const;
   u32 depth() const;
+
+  void write(std::span<const std::byte>, Layout, u32 mip = 0) const;
 };
 
 }

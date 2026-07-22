@@ -9,6 +9,7 @@ namespace grf {
 
 class Buffer;
 class Pipeline;
+class Image;
 
 struct ColorAttachment {
   SwapchainImage        img;
@@ -63,8 +64,11 @@ public:
   void draw(u32) const;
   void drawIndexed(u32) const;
 
-  void transition(const SwapchainImage&, Layout, Layout) const;
+  void transition(SwapchainImage, Layout) const;
+  void transition(Image, Layout) const;
   void copyBuffer(Buffer, Buffer, u32, u32, u32) const;
+  void bufferImageCopy(Buffer, Image, u32 offset = 0, u32 mip = 0) const;
+  void generateMips(Image, Layout) const;
 };
 
 class Queue {

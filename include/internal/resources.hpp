@@ -1,6 +1,7 @@
 #pragma once
 
 #include "grf/resources.hpp"
+#include "grf/types.hpp"
 #include "internal/queue.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
@@ -93,10 +94,13 @@ public:
   Impl& operator=(Impl&&) = delete;
 
   void setResourceManager(ResourceManager*);
+  void setLayout(vk::ImageLayout);
 
   VkImage image() const;
   vk::ImageView view() const;
   u32 mips() const;
+  vk::ImageLayout layout() const;
+  vk::Format format() const;
 };
 
 class Allocator {
@@ -134,6 +138,14 @@ class ResourceManager {
     u32     size;
   };
 
+  struct ImageStagingInfo {
+    Buffer  src;
+    Image   dst;
+    u32     offset;
+    Layout  layout;
+    u32     mip = 0;
+  };
+
   vkr::Device*                    m_device;
   Queue                           m_queue;
   Ring<CommandBuffer>             m_cmdRing;
@@ -143,7 +155,8 @@ class ResourceManager {
   Sync                            m_latestSync;
   Buffer                          m_buffer;
   u32                             m_offset = 0;
-  std::vector<BufferStagingInfo>  m_staged;
+  std::vector<BufferStagingInfo>  m_stagedBuffers;
+  std::vector<ImageStagingInfo>   m_stagedImages;
   bool                            m_shouldWait = true;
 
 public:
@@ -157,6 +170,7 @@ public:
 
   void init(vkr::Device*, Queue, Ring<Buffer>, u32);
   void stage(Buffer, std::span<const std::byte>, u32 offset);
+  void stage(Image, std::span<const std::byte>, Layout, u32 mip);
   Sync flush();
 };
 

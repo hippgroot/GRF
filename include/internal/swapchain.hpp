@@ -36,6 +36,7 @@ private:
   Format                m_format = Format::undefined;
   u32                   m_width = 0;
   u32                   m_height = 0;
+  vk::ImageLayout       m_layout = vk::ImageLayout::eUndefined;
 
 public:
   Impl(const vkr::Device&, const Info&);
@@ -46,11 +47,14 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
+  void setLayout(vk::ImageLayout);
+
   vk::SwapchainKHR swapchain() const;
   vk::Image image() const;
   vk::ImageView view() const;
   vk::Semaphore semaphore() const;
   u32 index() const;
+  vk::ImageLayout layout() const;
 };
 
 class Swapchain::Impl {

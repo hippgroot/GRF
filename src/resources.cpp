@@ -1,6 +1,10 @@
 #include "internal/log.hpp"
 #include "internal/resources.hpp"
 
+#include <vulkan/vulkan_format_traits.hpp>
+
+#include <numeric>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -131,6 +135,10 @@ u32 Image::depth() const {
   return m_impl->m_depth;
 }
 
+void Image::write(std::span<const std::byte> bytes, Layout layout, u32 mip) const {
+  m_impl->m_resourceManager->stage(*this, bytes, layout, mip);
+}
+
 Image::Impl::Impl(const Info& info)
 : m_allocator(info.allocator),
   m_allocation(info.allocation),
@@ -164,6 +172,10 @@ void Image::Impl::setResourceManager(ResourceManager* resourceManager) {
   m_resourceManager = resourceManager;
 }
 
+void Image::Impl::setLayout(vk::ImageLayout layout) {
+  m_layout = layout;
+}
+
 VkImage Image::Impl::image() const {
   return m_image;
 }
@@ -174,6 +186,14 @@ vk::ImageView Image::Impl::view() const {
 
 u32 Image::Impl::mips() const {
   return m_mips;
+}
+
+vk::ImageLayout Image::Impl::layout() const {
+  return m_layout;
+}
+
+vk::Format Image::Impl::format() const {
+  return m_format;
 }
 
 Allocator::~Allocator() {
@@ -327,7 +347,7 @@ void ResourceManager::init(
 
 void ResourceManager::stage(Buffer dst, std::span<const std::byte> data, u32 offset) {
   if (data.size() > m_buffer.m_impl->size())
-    log::error("Data upload size is greater than staging buffer size. Chunking is not implemented yet so consider increasing the staging buffer size in your Device::Info struct");
+    log::error("Buffer upload size is greater than staging buffer size. Consider increasing the staging buffer size in your Device::Info struct");
 
   if (data.size() + m_offset > m_buffer.m_impl->size())
     (void)flush();
@@ -352,7 +372,7 @@ void ResourceManager::stage(Buffer dst, std::span<const std::byte> data, u32 off
   std::byte* map = (std::byte*)m_buffer.m_impl->map();
   std::memcpy(map + m_offset, data.data(), data.size());
 
-  m_staged.emplace_back(BufferStagingInfo{
+  m_stagedBuffers.emplace_back(BufferStagingInfo{
     .src        = m_buffer,
     .dst        = dst,
     .srcOffset  = m_offset,
@@ -363,22 +383,73 @@ void ResourceManager::stage(Buffer dst, std::span<const std::byte> data, u32 off
   m_offset += data.size();
 }
 
+void ResourceManager::stage(Image dst, std::span<const std::byte> bytes, Layout layout, u32 mip) {
+  if (bytes.size() > m_buffer.m_impl->size())
+    log::error("Image upload size is greater than staging buffer size. Consider increasing the staging buffer size in your Device::Info struct");
+
+  // buffer-to-image copy offsets must be a multiple of the texel block size (and 4 for depth aspects)
+  u32 align = std::lcm(4u, static_cast<u32>(vk::blockSize(dst.m_impl->format())));
+  m_offset = (m_offset + align - 1) / align * align;
+
+  if (bytes.size() + m_offset > m_buffer.m_impl->size())
+    (void)flush();
+
+  if (m_shouldWait) {
+    m_currSync = &m_syncRing.next();
+    vk::Semaphore semaphore = m_currSync->m_impl->semaphore();
+    u64 value = m_currSync->m_impl->value();
+
+    auto res = m_device->waitSemaphores(vk::SemaphoreWaitInfo{
+      .semaphoreCount = 1,
+      .pSemaphores    = &semaphore,
+      .pValues        = &value
+    }, std::numeric_limits<u64>::max());
+
+    if (res != vk::Result::eSuccess)
+      log::error("Hung waiting for next staging buffer");
+
+    m_shouldWait = false;
+  }
+
+  std::byte* map = (std::byte*)m_buffer.m_impl->map();
+  std::memcpy(map + m_offset, bytes.data(), bytes.size());
+
+  m_stagedImages.emplace_back(ImageStagingInfo{
+    .src    = m_buffer,
+    .dst    = dst,
+    .offset = m_offset,
+    .layout = layout,
+    .mip    = mip
+  });
+
+  m_offset += bytes.size();
+}
+
 Sync ResourceManager::flush() {
-  if (m_staged.empty()) return m_latestSync;
+  if (m_stagedBuffers.empty() && m_stagedImages.empty()) return m_latestSync;
 
   auto& cmd = m_cmdRing.next();
   cmd.begin();
 
-  for (const auto& info : m_staged)
+  for (const auto& info : m_stagedBuffers)
     cmd.copyBuffer(info.src, info.dst, info.srcOffset, info.dstOffset, info.size);
+
+  for (const auto& info : m_stagedImages) {
+    cmd.transition(info.dst, Layout::TransferDstOptimal);
+    cmd.bufferImageCopy(info.src, info.dst, info.offset, info.mip);
+    cmd.transition(info.dst, info.layout);
+  }
 
   cmd.end();
 
   *m_currSync = m_latestSync = m_queue.submit({ cmd });
 
-  m_staged.clear();
+  m_stagedBuffers.clear();
+  m_stagedImages.clear();
+
   m_buffer = m_bufferRing.next();
   m_offset = 0;
+
   m_shouldWait = true;
 
   return m_latestSync;

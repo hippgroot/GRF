@@ -47,6 +47,10 @@ SwapchainImage::Impl::Impl(const vkr::Device& device, const Info& info)
   m_semaphore = device.createSemaphore({});
 }
 
+void SwapchainImage::Impl::setLayout(vk::ImageLayout layout) {
+  m_layout = layout;
+}
+
 vk::SwapchainKHR SwapchainImage::Impl::swapchain() const {
   return m_swapchain;
 }
@@ -65,6 +69,10 @@ vk::Semaphore SwapchainImage::Impl::semaphore() const {
 
 u32 SwapchainImage::Impl::index() const {
   return m_index;
+}
+
+vk::ImageLayout SwapchainImage::Impl::layout() const {
+  return m_layout;
 }
 
 Swapchain::Swapchain(const Device& device, Window& window, const Swapchain::Info& info)
