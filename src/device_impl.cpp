@@ -100,8 +100,6 @@ Device::Impl::Impl(const Device::Info& info) {
     queueFamilies.graphics(), queueFamilies.compute(), queueFamilies.transfer()
   };
 
-  createLayouts();
-
   m_allocator.init(Allocator::Info{
     .instance       = m_instance,
     .physicalDevice = m_physicalDevice,
@@ -120,6 +118,19 @@ Device::Impl::Impl(const Device::Info& info) {
     buffers.emplace_back(buffer);
   }
   m_resourceManager.init(&m_device, m_transferQueue, Ring<Buffer>(buffers), info.stagingCount);
+
+  m_descriptorHeap.init(m_physicalDevice, &m_device);
+
+  vk::DescriptorSetLayout setLayout = m_descriptorHeap.layout();
+  m_pipelineLayout = m_device.createPipelineLayout(vk::PipelineLayoutCreateInfo{
+    .setLayoutCount         = 1,
+    .pSetLayouts            = &setLayout,
+    .pushConstantRangeCount = 0,
+    .pPushConstantRanges    = nullptr
+  });
+
+  m_graphicsQueue.m_impl->setDescriptorHeapInfo(m_descriptorHeap.set(), *m_pipelineLayout, vk::ShaderStageFlagBits::eAll);
+  m_computeQueue.m_impl->setDescriptorHeapInfo(m_descriptorHeap.set(), *m_pipelineLayout, vk::ShaderStageFlagBits::eCompute);
 
   log::general("GRF Version: {}.{}.{}",
     GRF_VERSION_MAJOR, GRF_VERSION_MINOR, GRF_VERSION_PATCH
@@ -330,20 +341,6 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
   };
 
   m_device = m_physicalDevice.createDevice(createChain.get<vk::DeviceCreateInfo>());
-}
-
-void Device::Impl::createLayouts() {
-  m_setLayout = m_device.createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo{
-    .bindingCount = 0,
-    .pBindings    = nullptr
-  });
-
-  m_pipelineLayout = m_device.createPipelineLayout(vk::PipelineLayoutCreateInfo{
-    .setLayoutCount         = 1,
-    .pSetLayouts            = &*m_setLayout,
-    .pushConstantRangeCount = 0,
-    .pPushConstantRanges    = nullptr
-  });
 }
 
 }

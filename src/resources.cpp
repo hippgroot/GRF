@@ -1,4 +1,5 @@
 #include "internal/log.hpp"
+#include "vulkan/vulkan.hpp"
 #include "internal/resources.hpp"
 
 #include <vulkan/vulkan_format_traits.hpp>
@@ -147,7 +148,8 @@ Image::Impl::Impl(const Info& info)
   m_height(info.height),
   m_depth(info.depth),
   m_mips(info.mips),
-  m_format(info.format)
+  m_format(info.format),
+  m_usage(info.usage)
 {
   bool isDepth = m_format >= vk::Format::eD16Unorm && m_format <= vk::Format::eD32SfloatS8Uint;
   m_view = info.device.createImageView(vk::ImageViewCreateInfo{
@@ -165,15 +167,29 @@ Image::Impl::Impl(const Info& info)
 }
 
 Image::Impl::~Impl() {
+  if (m_descriptorHeap)
+    m_descriptorHeap->unregisterImage(this);
   vmaDestroyImage(m_allocator, m_image, m_allocation);
 }
 
-void Image::Impl::setResourceManager(ResourceManager* resourceManager) {
-  m_resourceManager = resourceManager;
+void Image::Impl::setResourceManager(ResourceManager* p_resourceManager) {
+  m_resourceManager = p_resourceManager;
+}
+
+void Image::Impl::setDescriptorHeap(DescriptorHeap* p_descriptorHeap) {
+  m_descriptorHeap = p_descriptorHeap;
 }
 
 void Image::Impl::setLayout(vk::ImageLayout layout) {
   m_layout = layout;
+}
+
+void Image::Impl::setSampledHeapIndex(u32 index) {
+  m_sampledHeapIndex = index;
+}
+
+void Image::Impl::setStorageHeapIndex(u32 index) {
+  m_storageHeapIndex = index;
 }
 
 VkImage Image::Impl::image() const {
@@ -196,6 +212,18 @@ vk::Format Image::Impl::format() const {
   return m_format;
 }
 
+vk::ImageUsageFlags Image::Impl::usage() const {
+  return m_usage;
+}
+
+u32 Image::Impl::sampledHeapIndex() const {
+  return m_sampledHeapIndex;
+}
+
+u32 Image::Impl::storageHeapIndex() const {
+  return m_storageHeapIndex;
+}
+
 Allocator::~Allocator() {
   vmaDestroyAllocator(m_allocator);
 }
@@ -207,6 +235,7 @@ void Allocator::init(const Info& info) {
   };
 
   VmaAllocatorCreateInfo createInfo{
+    .flags            =  VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
     .physicalDevice   = *info.physicalDevice,
     .device           = *info.device,
     .pVulkanFunctions = &functions,
@@ -224,10 +253,11 @@ Buffer Allocator::allocateBuffer(const Buffer::Info& info, const std::set<u32>& 
 
   vk::BufferCreateInfo bufferCreateInfo{
     .size   = info.size,
-    .usage  = vk::BufferUsageFlagBits::eStorageBuffer   |
-              vk::BufferUsageFlagBits::eIndexBuffer     |
-              vk::BufferUsageFlagBits::eIndirectBuffer  |
-              vk::BufferUsageFlagBits::eTransferSrc     |
+    .usage  = vk::BufferUsageFlagBits::eStorageBuffer       |
+              vk::BufferUsageFlagBits::eIndexBuffer         |
+              vk::BufferUsageFlagBits::eIndirectBuffer      |
+              vk::BufferUsageFlagBits::eShaderDeviceAddress |
+              vk::BufferUsageFlagBits::eTransferSrc         |
               vk::BufferUsageFlagBits::eTransferDst,
     .sharingMode = indices.size() == 1 ? vk::SharingMode::eExclusive : vk::SharingMode::eConcurrent,
     .queueFamilyIndexCount  = static_cast<u32>(indices.size()),
@@ -242,7 +272,7 @@ Buffer Allocator::allocateBuffer(const Buffer::Info& info, const std::set<u32>& 
   case BufferIntent::FrequentUpdate:
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
-                      VMA_ALLOCATION_CREATE_MAPPED_BIT;
+                            VMA_ALLOCATION_CREATE_MAPPED_BIT;
     break;
   case BufferIntent::Readable:
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
@@ -323,7 +353,8 @@ Image Allocator::allocateImage(const vkr::Device& device, const Image::Info& inf
     .height     = info.height,
     .depth      = info.depth,
     .mips       = mips,
-    .format     = imageCreateInfo.format
+    .format     = imageCreateInfo.format,
+    .usage      = imageCreateInfo.usage
   });
 
   return img;
@@ -452,6 +483,167 @@ Sync ResourceManager::flush() {
   m_shouldWait = true;
 
   return m_latestSync;
+}
+
+void FreeList::setCapacity(u32 capacity) {
+  m_capacity = capacity;
+}
+
+u32 FreeList::next() {
+  if (!m_recycled.empty()) {
+    u32 index = m_recycled.front();
+    m_recycled.pop();
+    return index;
+  }
+
+  if (m_next >= m_capacity)
+    log::error("Descriptor heap exhausted ({} slots)", m_capacity);
+
+  return m_next++;
+}
+
+// TODO: defer reuse until the last submission indexing this slot completes
+// (tag with the queue's latest Sync and drain in updateResources)
+void FreeList::recycle(u32 index) {
+  m_recycled.emplace(index);
+}
+
+void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device* p_device) {
+  m_device = p_device;
+
+  auto properties = physicalDevice.getProperties2<
+    vk::PhysicalDeviceProperties2, vk::PhysicalDeviceVulkan12Properties
+  >();
+  const auto& limits = properties.get<vk::PhysicalDeviceVulkan12Properties>();
+
+  u32 sampledCount = std::min(65536u, limits.maxDescriptorSetUpdateAfterBindSampledImages);
+  u32 storageCount = std::min(16384u, limits.maxDescriptorSetUpdateAfterBindStorageImages);
+
+  m_sampledList.setCapacity(sampledCount);
+  m_storageList.setCapacity(storageCount);
+
+  std::array<vk::DescriptorSetLayoutBinding, 2> bindings{
+    vk::DescriptorSetLayoutBinding{
+      .binding          = 0,
+      .descriptorType   = vk::DescriptorType::eSampledImage,
+      .descriptorCount  = sampledCount,
+      .stageFlags       = vk::ShaderStageFlagBits::eAll
+    },
+    vk::DescriptorSetLayoutBinding{
+      .binding          = 1,
+      .descriptorType   = vk::DescriptorType::eStorageImage,
+      .descriptorCount  = storageCount,
+      .stageFlags       = vk::ShaderStageFlagBits::eAll,
+    }
+  };
+
+  std::array<vk::DescriptorBindingFlags, 2> bindingFlags = {};
+  bindingFlags.fill(vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound);
+
+  vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> layoutChain = {
+    vk::DescriptorSetLayoutCreateInfo{
+      .flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+      .bindingCount = static_cast<u32>(bindings.size()),
+      .pBindings    = bindings.data()
+    },
+    vk::DescriptorSetLayoutBindingFlagsCreateInfo{
+      .bindingCount   = static_cast<u32>(bindingFlags.size()),
+      .pBindingFlags  = bindingFlags.data()
+    }
+  };
+
+  m_layout = m_device->createDescriptorSetLayout(layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
+
+  std::array<vk::DescriptorPoolSize, 2> poolSizes = {
+    vk::DescriptorPoolSize{
+      .type             = vk::DescriptorType::eSampledImage,
+      .descriptorCount  = sampledCount
+    },
+    vk::DescriptorPoolSize{
+      .type             = vk::DescriptorType::eStorageImage,
+      .descriptorCount  = storageCount
+    }
+  };
+
+  m_pool = m_device->createDescriptorPool(vk::DescriptorPoolCreateInfo{
+    .flags          = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind | vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+    .maxSets        = 1,
+    .poolSizeCount  = static_cast<u32>(poolSizes.size()),
+    .pPoolSizes     = poolSizes.data()
+  });
+
+  m_set = std::move(m_device->allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
+    .descriptorPool     = m_pool,
+    .descriptorSetCount = 1,
+    .pSetLayouts        = &*m_layout
+  })[0]);
+}
+
+void DescriptorHeap::registerImage(Image image) {
+  bool sampled = static_cast<bool>(image.m_impl->usage() & vk::ImageUsageFlagBits::eSampled);
+  bool storage = static_cast<bool>(image.m_impl->usage() & vk::ImageUsageFlagBits::eStorage);
+
+  vk::DescriptorImageInfo sampledInfo{
+    .imageView    = image.m_impl->view(),
+    .imageLayout  = vk::ImageLayout::eShaderReadOnlyOptimal
+  };
+
+  vk::DescriptorImageInfo storageInfo{
+    .imageView    = image.m_impl->view(),
+    .imageLayout  = vk::ImageLayout::eGeneral
+  };
+
+  std::vector<vk::WriteDescriptorSet> writes;
+  writes.reserve(2);
+
+  if (sampled) {
+    u32 index = m_sampledList.next();
+    writes.emplace_back(vk::WriteDescriptorSet{
+      .dstSet           = *m_set,
+      .dstBinding       = 0,
+      .dstArrayElement  = index,
+      .descriptorCount  = 1,
+      .descriptorType   = vk::DescriptorType::eSampledImage,
+      .pImageInfo       = &sampledInfo
+    });
+    image.m_impl->setSampledHeapIndex(index);
+  }
+
+  if (storage) {
+    u32 index = m_storageList.next();
+    writes.emplace_back(vk::WriteDescriptorSet{
+      .dstSet           = *m_set,
+      .dstBinding       = 1,
+      .dstArrayElement  = index,
+      .descriptorCount  = 1,
+      .descriptorType   = vk::DescriptorType::eStorageImage,
+      .pImageInfo       = &storageInfo
+    });
+    image.m_impl->setStorageHeapIndex(index);
+  }
+
+  if (writes.empty()) return;
+
+  m_device->updateDescriptorSets(writes, nullptr);
+}
+
+void DescriptorHeap::unregisterImage(Image::Impl* image) {
+  bool sampled = image->sampledHeapIndex() != std::numeric_limits<u32>::max();
+  bool storage = image->storageHeapIndex() != std::numeric_limits<u32>::max();
+
+  if (sampled)
+    m_sampledList.recycle(image->sampledHeapIndex());
+
+  if (storage)
+    m_storageList.recycle(image->storageHeapIndex());
+}
+
+vk::DescriptorSetLayout DescriptorHeap::layout() const {
+  return *m_layout;
+}
+
+vk::DescriptorSet DescriptorHeap::set() const {
+  return *m_set;
 }
 
 }

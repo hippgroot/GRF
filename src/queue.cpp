@@ -4,7 +4,6 @@
 #include "internal/queue.hpp"
 #include "internal/resources.hpp"
 #include "internal/swapchain.hpp"
-#include <vulkan/vulkan.hpp>
 
 namespace grf {
 
@@ -34,6 +33,16 @@ SyncType Sync::Impl::type() const {
 void CommandBuffer::begin() const {
   m_impl->m_cmd.reset();
   m_impl->m_cmd.begin({});
+
+  if (!m_impl->m_set || !m_impl->m_layout) return;
+
+  m_impl->m_cmd.bindDescriptorSets2(vk::BindDescriptorSetsInfo{
+    .stageFlags         = m_impl->m_stageFlags,
+    .layout             = m_impl->m_layout,
+    .firstSet           = 0,
+    .descriptorSetCount = 1,
+    .pDescriptorSets    = &m_impl->m_set
+  });
 }
 
 void CommandBuffer::end() const {
@@ -295,7 +304,9 @@ void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
   image.m_impl->setLayout(static_cast<vk::ImageLayout>(finalLayout));
 }
 
-CommandBuffer::Impl::Impl(vkr::CommandBuffer&& cmd) : m_cmd(std::move(cmd)) {}
+CommandBuffer::Impl::Impl(vkr::CommandBuffer&& cmd, vk::DescriptorSet set, vk::PipelineLayout layout, vk::ShaderStageFlags stageFlags)
+: m_cmd(std::move(cmd)), m_set(set), m_layout(layout), m_stageFlags(stageFlags)
+{}
 
 const vkr::CommandBuffer& CommandBuffer::Impl::commandBuffer() const {
   return m_cmd;
@@ -314,7 +325,7 @@ Ring<CommandBuffer> Queue::getCmdRing(u32 count) const {
 
   std::vector<CommandBuffer> ringData(count, CommandBuffer());
   for (u32 i = 0; i < count; ++i)
-    ringData[i].m_impl = std::make_shared<CommandBuffer::Impl>(std::move(cmds[i]));
+    ringData[i].m_impl = std::make_shared<CommandBuffer::Impl>(std::move(cmds[i]), m_impl->m_set, m_impl->m_layout, m_impl->m_stageFlags);
 
   return Ring<CommandBuffer>(std::move(ringData));
 }
@@ -440,6 +451,12 @@ Queue::Impl::Impl(const vkr::Device& device, u32 index)
   };
 
   m_timeline = m_device.createSemaphore(chain.get<vk::SemaphoreCreateInfo>());
+}
+
+void Queue::Impl::setDescriptorHeapInfo(vk::DescriptorSet set, vk::PipelineLayout layout, vk::ShaderStageFlags stageFlags) {
+  m_set = set;
+  m_layout = layout;
+  m_stageFlags = stageFlags;
 }
 
 }

@@ -62,6 +62,7 @@ private:
 class Image {
   friend class Allocator;
   friend class CommandBuffer;
+  friend class DescriptorHeap;
   friend class Device;
   friend class ResourceManager;
 
@@ -95,7 +96,7 @@ public:
   Image& operator=(const Image&) = default;
   Image& operator=(Image&&) = default;
 
-  static Data getDataFromFile(const std::filesystem::path&, bool srgb = false);
+  static Data getDataFromFile(const std::filesystem::path& path, bool srgb = true);
 
   u32 width() const;
   u32 height() const;

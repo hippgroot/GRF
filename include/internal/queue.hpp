@@ -1,6 +1,7 @@
 #pragma once
 
 #include "grf/queue.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -40,10 +41,13 @@ public:
 class CommandBuffer::Impl {
   friend class CommandBuffer;
 
-  vkr::CommandBuffer m_cmd = nullptr;
+  vkr::CommandBuffer   m_cmd = nullptr;
+  vk::DescriptorSet    m_set = nullptr;
+  vk::PipelineLayout   m_layout = nullptr;
+  vk::ShaderStageFlags m_stageFlags = {};
 
 public:
-  explicit Impl(vkr::CommandBuffer&&);
+  explicit Impl(vkr::CommandBuffer&&, vk::DescriptorSet, vk::PipelineLayout, vk::ShaderStageFlags);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
@@ -57,7 +61,10 @@ public:
 class Queue::Impl {
   friend class Queue;
 
-  const vkr::Device&  m_device;
+  const vkr::Device&   m_device;
+  vk::DescriptorSet    m_set = nullptr;
+  vk::PipelineLayout   m_layout = nullptr;
+  vk::ShaderStageFlags m_stageFlags = {};
 
   std::mutex          m_mutex = std::mutex{};
   u32                 m_index = VK_QUEUE_FAMILY_IGNORED;
@@ -74,6 +81,8 @@ public:
   Impl(Impl&&) = delete;
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
+
+  void setDescriptorHeapInfo(vk::DescriptorSet set, vk::PipelineLayout layout, vk::ShaderStageFlags stageFlags);
 };
 
 }

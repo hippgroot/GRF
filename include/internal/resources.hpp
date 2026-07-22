@@ -6,6 +6,7 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
+#include <queue>
 #include <set>
 
 typedef struct VmaAllocator_T* VmaAllocator;
@@ -15,6 +16,7 @@ namespace vkr = vk::raii;
 
 namespace grf {
 
+class DescriptorHeap;
 class ResourceManager;
 
 class Buffer::Impl {
@@ -69,10 +71,12 @@ public:
     u32                 depth;
     u32                 mips;
     vk::Format          format;
+    vk::ImageUsageFlags usage;
   };
 
 private:
   ResourceManager*  m_resourceManager = nullptr;
+  DescriptorHeap*   m_descriptorHeap = nullptr;
   VmaAllocator      m_allocator = nullptr;
   VmaAllocation     m_allocation  = nullptr;
   VkImage           m_image = nullptr;
@@ -80,9 +84,12 @@ private:
   u32               m_width;
   u32               m_height;
   u32               m_depth;
-  u32               m_mips;
-  vk::Format        m_format;
-  vk::ImageLayout   m_layout = vk::ImageLayout::eUndefined;
+  u32                 m_mips;
+  vk::Format          m_format;
+  vk::ImageUsageFlags m_usage;
+  vk::ImageLayout     m_layout = vk::ImageLayout::eUndefined;
+  u32                 m_sampledHeapIndex = std::numeric_limits<u32>::max();
+  u32                 m_storageHeapIndex = std::numeric_limits<u32>::max();
 
 public:
   Impl(const Info&);
@@ -93,14 +100,20 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
-  void setResourceManager(ResourceManager*);
-  void setLayout(vk::ImageLayout);
+  void setResourceManager(ResourceManager* p_resourceManager);
+  void setDescriptorHeap(DescriptorHeap* p_descriptorHeap);
+  void setLayout(vk::ImageLayout layout);
+  void setSampledHeapIndex(u32 index);
+  void setStorageHeapIndex(u32 index);
 
   VkImage image() const;
   vk::ImageView view() const;
   u32 mips() const;
   vk::ImageLayout layout() const;
   vk::Format format() const;
+  vk::ImageUsageFlags usage() const;
+  u32 sampledHeapIndex() const;
+  u32 storageHeapIndex() const;
 };
 
 class Allocator {
@@ -172,6 +185,47 @@ public:
   void stage(Buffer buffer, std::span<const std::byte> data, u32 offset);
   void stage(Image image, std::span<const std::byte> bytes, Layout finalLayout, u32 mip);
   Sync flush();
+};
+
+class FreeList {
+  std::queue<u32> m_recycled;
+  u32             m_next = 0;
+  u32             m_capacity = 0;
+
+public:
+  FreeList() = default;
+  ~FreeList() = default;
+
+  void setCapacity(u32 capacity);
+  u32 next();
+  void recycle(u32);
+};
+
+class DescriptorHeap {
+  vkr::Device*              m_device = nullptr;
+
+  vkr::DescriptorSetLayout  m_layout = nullptr;
+  vkr::DescriptorPool       m_pool = nullptr;
+  vkr::DescriptorSet        m_set = nullptr;
+
+  FreeList                  m_sampledList;
+  FreeList                  m_storageList;
+
+public:
+  DescriptorHeap() = default;
+  ~DescriptorHeap() = default;
+
+  DescriptorHeap(const DescriptorHeap&) = delete;
+  DescriptorHeap(DescriptorHeap&&) = delete;
+  DescriptorHeap& operator=(const DescriptorHeap&) = delete;
+  DescriptorHeap& operator=(DescriptorHeap&&) = delete;
+
+  void init(const vkr::PhysicalDevice& physicalDevice, vkr::Device* p_device);
+  void registerImage(Image image);
+  void unregisterImage(Image::Impl* image);
+
+  vk::DescriptorSetLayout layout() const;
+  vk::DescriptorSet set() const;
 };
 
 }
