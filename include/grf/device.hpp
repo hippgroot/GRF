@@ -45,18 +45,18 @@ public:
   const Queue& graphicsQueue() const;
   const Queue& computeQueue() const;
 
-  void wait(std::span<const Sync>, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
+  void wait(std::span<const Sync> syncs, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
   void waitIdle() const;
   Sync updateResources() const;
 
-  Shader compileGlslShader(ShaderStage, const std::filesystem::path&) const;
-  Pipeline createComputePipeline(const Shader&) const;
-  Pipeline createGraphicsPipeline(std::span<const Shader>, const GraphicsPipelineSettings&) const;
+  Shader compileGlslShader(ShaderStage stage, const std::filesystem::path& path) const;
+  Pipeline createComputePipeline(const Shader& shader) const;
+  Pipeline createGraphicsPipeline(std::span<const Shader> shaders, const GraphicsPipelineSettings& settings) const;
 
-  Buffer createBuffer(const Buffer::Info&) const;
-  Ring<Buffer> createBufferRing(u32, const Buffer::Info&) const;
+  Buffer createBuffer(const Buffer::Info& info) const;
+  Ring<Buffer> createBufferRing(u32, const Buffer::Info& info) const;
 
-  Image createImage(const Image::Info&) const;
+  Image createImage(const Image::Info& info) const;
 };
 
 }

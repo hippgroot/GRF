@@ -48,9 +48,9 @@ public:
   u32 height() const;
 
   void pollEvents();
-  bool isPressed(Key) const;
-  bool isJustPressed(Key) const;
-  bool isJustReleased(Key) const;
+  bool isPressed(Key key) const;
+  bool isJustPressed(Key key) const;
+  bool isJustReleased(Key key) const;
 };
 
 }

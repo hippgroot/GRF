@@ -383,11 +383,10 @@ void ResourceManager::stage(Buffer dst, std::span<const std::byte> data, u32 off
   m_offset += data.size();
 }
 
-void ResourceManager::stage(Image dst, std::span<const std::byte> bytes, Layout layout, u32 mip) {
+void ResourceManager::stage(Image dst, std::span<const std::byte> bytes, Layout finalLayout, u32 mip) {
   if (bytes.size() > m_buffer.m_impl->size())
     log::error("Image upload size is greater than staging buffer size. Consider increasing the staging buffer size in your Device::Info struct");
 
-  // buffer-to-image copy offsets must be a multiple of the texel block size (and 4 for depth aspects)
   u32 align = std::lcm(4u, static_cast<u32>(vk::blockSize(dst.m_impl->format())));
   m_offset = (m_offset + align - 1) / align * align;
 
@@ -418,7 +417,7 @@ void ResourceManager::stage(Image dst, std::span<const std::byte> bytes, Layout 
     .src    = m_buffer,
     .dst    = dst,
     .offset = m_offset,
-    .layout = layout,
+    .layout = finalLayout,
     .mip    = mip
   });
 

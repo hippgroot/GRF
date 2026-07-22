@@ -39,7 +39,7 @@ private:
   vk::ImageLayout       m_layout = vk::ImageLayout::eUndefined;
 
 public:
-  Impl(const vkr::Device&, const Info&);
+  Impl(const vkr::Device& device, const Info& info);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
@@ -47,7 +47,7 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
-  void setLayout(vk::ImageLayout);
+  void setLayout(vk::ImageLayout layout);
 
   vk::SwapchainKHR swapchain() const;
   vk::Image image() const;
@@ -76,7 +76,7 @@ class Swapchain::Impl {
   bool                        m_dirty = false;
 
 public:
-  Impl(const Device&, Window&, const Swapchain::Info&);
+  Impl(const Device& device, Window& window, const Swapchain::Info& info);
   ~Impl();
 
   Impl(const Impl&) = delete;
@@ -84,13 +84,13 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
-  void recreate(u32, u32);
+  void recreate(u32 width, u32 height);
   void unregisterWindow();
 
 private:
-  void createSurface(const vkr::Instance&);
-  vk::SurfaceCapabilitiesKHR processInfo(const Swapchain::Info&);
-  void createSwapchain(const vk::SurfaceCapabilitiesKHR&);
+  void createSurface(const vkr::Instance& instance);
+  vk::SurfaceCapabilitiesKHR processInfo(const Swapchain::Info& info);
+  void createSwapchain(const vk::SurfaceCapabilitiesKHR& capabilities);
   void createImages();
 };
 

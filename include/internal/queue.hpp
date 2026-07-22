@@ -23,8 +23,8 @@ class Sync::Impl {
   SyncType      m_type = SyncType::Timeline;
 
 public:
-  explicit Impl(vk::Semaphore);
-  Impl(vk::Semaphore, u64);
+  explicit Impl(vk::Semaphore binarySemaphore);
+  Impl(vk::Semaphore timelineSemaphore, u64 value);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
@@ -67,7 +67,7 @@ class Queue::Impl {
   u64                 m_value = 0;
 
 public:
-  Impl(const vkr::Device&, u32);
+  Impl(const vkr::Device& device, u32 queueFamilyIndex);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;

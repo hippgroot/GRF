@@ -101,7 +101,7 @@ public:
   u32 height() const;
   u32 depth() const;
 
-  void write(std::span<const std::byte>, Layout, u32 mip = 0) const;
+  void write(std::span<const std::byte> bytes, Layout finalLayout, u32 mip = 0) const;
 };
 
 }

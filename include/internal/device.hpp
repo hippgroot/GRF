@@ -49,7 +49,7 @@ class Device::Impl {
   ShaderManager             m_shaderManager;
 
 public:
-  explicit Impl(const Device::Info&);
+  explicit Impl(const Device::Info& info);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
@@ -58,9 +58,9 @@ public:
   Impl& operator=(Impl&&) = delete;
 
 private:
-  bool createInstance(const Device::Info&);
+  bool createInstance(const Device::Info& info);
   PDOutput choosePhysicalDevice();
-  void createDevice(const QueueFamilies&, bool);
+  void createDevice(const QueueFamilies& queueFamilies, bool queryPortability);
   void createLayouts();
 };
 

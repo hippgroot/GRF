@@ -104,8 +104,8 @@ void CommandBuffer::draw(u32 vertexCount) const {
   m_impl->m_cmd.draw(vertexCount, 1, 0, 0);
 }
 
-void CommandBuffer::drawIndexed(u32 count) const {
-  m_impl->m_cmd.drawIndexed(count, 1, 0, 0, 0);
+void CommandBuffer::drawIndexed(u32 indexCount) const {
+  m_impl->m_cmd.drawIndexed(indexCount, 1, 0, 0, 0);
 }
 
 void CommandBuffer::transition(SwapchainImage image, Layout layout) const {
@@ -168,11 +168,11 @@ void CommandBuffer::copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOff
   });
 }
 
-void CommandBuffer::bufferImageCopy(Buffer src, Image dst, u32 offset, u32 mip) const {
+void CommandBuffer::bufferImageCopy(Buffer src, Image dst, u32 bufferOffset, u32 mip) const {
   bool isDepth = dst.m_impl->format() >= vk::Format::eD16Unorm && dst.m_impl->format() <= vk::Format::eD32SfloatS8Uint;
 
   vk::BufferImageCopy2 region{
-    .bufferOffset     = offset,
+    .bufferOffset     = bufferOffset,
     .imageSubresource = vk::ImageSubresourceLayers{
       .aspectMask     = isDepth ? vk::ImageAspectFlagBits::eDepth : vk::ImageAspectFlagBits::eColor,
       .mipLevel       = mip,

@@ -56,19 +56,19 @@ public:
 
   void begin() const;
   void end() const;
-  void beginRendering(u32, u32, std::span<const ColorAttachment>) const;
+  void beginRendering(u32 width, u32 height, std::span<const ColorAttachment> attachments) const;
   void endRendering() const;
 
-  void bindIndexBuffer(const Buffer&, IndexType type = IndexType::u32) const;
-  void bindPipeline(const Pipeline&) const;
-  void draw(u32) const;
-  void drawIndexed(u32) const;
+  void bindIndexBuffer(const Buffer& buffer, IndexType type = IndexType::u32) const;
+  void bindPipeline(const Pipeline& pipeline) const;
+  void draw(u32 vertexCount) const;
+  void drawIndexed(u32 indexCount) const;
 
-  void transition(SwapchainImage, Layout) const;
-  void transition(Image, Layout) const;
-  void copyBuffer(Buffer, Buffer, u32, u32, u32) const;
-  void bufferImageCopy(Buffer, Image, u32 offset = 0, u32 mip = 0) const;
-  void generateMips(Image, Layout) const;
+  void transition(SwapchainImage image, Layout layout) const;
+  void transition(Image image, Layout layout) const;
+  void copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOffset, u32 size) const;
+  void bufferImageCopy(Buffer src, Image dst, u32 bufferOffset = 0, u32 mip = 0) const;
+  void generateMips(Image image, Layout finalLayout) const;
 };
 
 class Queue {

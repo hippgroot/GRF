@@ -168,9 +168,9 @@ public:
   ResourceManager& operator=(const ResourceManager&) = delete;
   ResourceManager& operator=(ResourceManager&&) = delete;
 
-  void init(vkr::Device*, Queue, Ring<Buffer>, u32);
-  void stage(Buffer, std::span<const std::byte>, u32 offset);
-  void stage(Image, std::span<const std::byte>, Layout, u32 mip);
+  void init(vkr::Device* p_device, Queue queue, Ring<Buffer> cmdRing, u32 stagingCount);
+  void stage(Buffer buffer, std::span<const std::byte> data, u32 offset);
+  void stage(Image image, std::span<const std::byte> bytes, Layout finalLayout, u32 mip);
   Sync flush();
 };
 

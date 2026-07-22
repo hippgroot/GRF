@@ -42,7 +42,7 @@ class Pipeline::Impl {
   PipelineType  m_type = PipelineType::Graphics;
 
 public:
-  explicit Impl(PipelineType, vkr::Pipeline&&);
+  explicit Impl(PipelineType type, vkr::Pipeline&& pipeline);
   ~Impl() = default;
 
   Impl(const Impl&) = delete;
@@ -67,10 +67,10 @@ public:
   ShaderManager& operator=(const ShaderManager&) = delete;
   ShaderManager& operator=(ShaderManager&&) = delete;
 
-  Shader compile(const vkr::Device&, ShaderStage, const fs::path&) const;
+  Shader compile(const vkr::Device& device, ShaderStage stage, const fs::path& path) const;
 
 private:
-  str stringify(const fs::path&) const;
+  str stringify(const fs::path& path) const;
 };
 
 }
