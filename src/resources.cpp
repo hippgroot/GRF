@@ -136,6 +136,14 @@ u32 Image::depth() const {
   return m_impl->m_depth;
 }
 
+u32 Image::sampledHeapIndex() const {
+  return m_impl->m_sampledHeapIndex;
+}
+
+u32 Image::storageHeapIndex() const {
+  return m_impl->m_storageHeapIndex;
+}
+
 void Image::write(std::span<const std::byte> bytes, Layout layout, u32 mip) const {
   m_impl->m_resourceManager->stage(*this, bytes, layout, mip);
 }

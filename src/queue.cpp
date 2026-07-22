@@ -109,6 +109,16 @@ void CommandBuffer::bindPipeline(const Pipeline& pipeline) const {
   );
 }
 
+void CommandBuffer::pushConstants(std::span<const std::byte> data, u32 offset) const {
+  m_impl->m_cmd.pushConstants2(vk::PushConstantsInfo{
+    .layout     = m_impl->m_layout,
+    .stageFlags = vk::ShaderStageFlagBits::eAll,
+    .offset     = offset,
+    .size       = static_cast<u32>(data.size()),
+    .pValues    = data.data()
+  });
+}
+
 void CommandBuffer::draw(u32 vertexCount) const {
   m_impl->m_cmd.draw(vertexCount, 1, 0, 0);
 }

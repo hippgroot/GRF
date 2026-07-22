@@ -101,7 +101,8 @@ public:
   u32 width() const;
   u32 height() const;
   u32 depth() const;
-
+  u32 sampledHeapIndex() const;
+  u32 storageHeapIndex() const;
   void write(std::span<const std::byte> bytes, Layout finalLayout, u32 mip = 0) const;
 };
 

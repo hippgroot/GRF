@@ -121,12 +121,18 @@ Device::Impl::Impl(const Device::Info& info) {
 
   m_descriptorHeap.init(m_physicalDevice, &m_device);
 
+  vk::PushConstantRange pcRange{
+    .stageFlags = vk::ShaderStageFlagBits::eAll,
+    .offset     = 0,
+    .size       = 128
+  };
+
   vk::DescriptorSetLayout setLayout = m_descriptorHeap.layout();
   m_pipelineLayout = m_device.createPipelineLayout(vk::PipelineLayoutCreateInfo{
     .setLayoutCount         = 1,
     .pSetLayouts            = &setLayout,
-    .pushConstantRangeCount = 0,
-    .pPushConstantRanges    = nullptr
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges    = &pcRange
   });
 
   m_graphicsQueue.m_impl->setDescriptorHeapInfo(m_descriptorHeap.set(), *m_pipelineLayout, vk::ShaderStageFlagBits::eAll);

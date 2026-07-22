@@ -61,6 +61,7 @@ public:
 
   void bindIndexBuffer(const Buffer& buffer, IndexType type = IndexType::u32) const;
   void bindPipeline(const Pipeline& pipeline) const;
+  void pushConstants(std::span<const std::byte> data, u32 offset) const;
   void draw(u32 vertexCount) const;
   void drawIndexed(u32 indexCount) const;
 
