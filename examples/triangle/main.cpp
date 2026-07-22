@@ -43,8 +43,23 @@ int main() {
   });
   buffer.write(std::vector<u32>{ 0, 1, 2 });
 
+  Image testImage;
+{
+  Image::Data data = Image::getDataFromFile(std::format("{}/uv_grid.png", ASSETS_DIR));
+  testImage = device.createImage(Image::Info{
+    .width        = data.width,
+    .height       = data.height,
+    .format       = data.format,
+    .usage        = ImageUsage::Sampled,
+    .allocateMips = true
+  });
+  testImage.write(data.bytes, Layout::TransferDstOptimal);
+}
+
   auto cmdRing = queue.getCmdRing(_flightFrames);
   auto syncRing = queue.getSyncRing(_flightFrames);
+
+  bool mipsGenerated = false;
 
   while (!window.shouldClose() && !window.isJustPressed(grf::Key::Escape)) {
     window.pollEvents();
@@ -52,31 +67,38 @@ int main() {
     auto& sync = syncRing.next();
     device.wait({ sync });
 
+    // flush staging before recording so tracked image layouts match what this frame's commands see
+    Sync resourceSync = device.updateResources();
+
     auto& cmd = cmdRing.next();
 
-    auto [renderTarget, imgSync] = swapchain.acquireNextImage();
+    auto [scImg, imgSync] = swapchain.acquireNextImage();
     ColorAttachment renderTargetAttachment{
-      .img      = renderTarget,
+      .img      = scImg,
       .loadOp   = LoadOp::Clear,
       .storeOp  = StoreOp::Store
     };
 
     cmd.begin();
-    cmd.transition(renderTarget, Layout::Undefined, Layout::ColorAttachmentOptimal);
-    cmd.beginRendering(renderTarget.width(), renderTarget.height(), { renderTargetAttachment });
+
+    if (!mipsGenerated) {
+      cmd.generateMips(testImage, Layout::ShaderReadOptimal);
+      mipsGenerated = true;
+    }
+
+    cmd.transition(scImg, Layout::ColorAttachmentOptimal);
+    cmd.beginRendering(scImg.width(), scImg.height(), { renderTargetAttachment });
 
     cmd.bindPipeline(pipeline);
     cmd.bindIndexBuffer(buffer);
     cmd.drawIndexed(3);
 
     cmd.endRendering();
-    cmd.transition(renderTarget, Layout::ColorAttachmentOptimal, Layout::PresentSrc);
+    cmd.transition(scImg, Layout::PresentSrc);
     cmd.end();
 
-    Sync resourceSync = device.updateResources();
-
     sync = queue.submit({ cmd }, { imgSync, resourceSync });
-    queue.present(renderTarget, { sync });
+    queue.present(scImg, { sync });
   }
 
   device.waitIdle();
