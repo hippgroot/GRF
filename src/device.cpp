@@ -231,20 +231,21 @@ Pipeline Device::createGraphicsPipeline(
 
 Buffer Device::createBuffer(const Buffer::Info& info) const {
   Buffer buffer = m_impl->m_allocator.allocateBuffer(info, m_impl->m_uniqueIndices);
+
   buffer.m_impl->setResourceManager(&m_impl->m_resourceManager);
+  buffer.m_impl->setAddress(m_impl->m_device.getBufferAddress({ .buffer = buffer.m_impl->buffer() }));
+
   return buffer;
 }
 
 Ring<Buffer> Device::createBufferRing(u32 count, const Buffer::Info& info) const {
   std::vector<Buffer> buffers;
   buffers.reserve(count);
-  for (u32 i = 0; i < count; ++i) {
-    Buffer buffer = m_impl->m_allocator.allocateBuffer(info, m_impl->m_uniqueIndices);
-    buffer.m_impl->setResourceManager(&m_impl->m_resourceManager);
-    buffers.emplace_back(buffer);
-  }
 
-  return Ring<Buffer>(buffers);
+  for (u32 i = 0; i < count; ++i)
+    buffers.emplace_back(createBuffer(info));
+
+  return Ring<Buffer>(std::move(buffers));
 }
 
 Image Device::createImage(const Image::Info& info) const {
@@ -255,6 +256,33 @@ Image Device::createImage(const Image::Info& info) const {
   image.m_impl->setDescriptorHeap(&m_impl->m_descriptorHeap);
 
   return image;
+}
+
+Sampler Device::createSampler(const Sampler::Info& info) const {
+  auto properties = m_impl->m_physicalDevice.getProperties();
+
+  Sampler sampler;
+  sampler.m_impl = std::make_shared<Sampler::Impl>(m_impl->m_device.createSampler(vk::SamplerCreateInfo{
+    .magFilter        = static_cast<vk::Filter>(info.magFilter),
+    .minFilter        = static_cast<vk::Filter>(info.minFilter),
+    .mipmapMode       = static_cast<vk::SamplerMipmapMode>(info.mipmapMode),
+    .addressModeU     = static_cast<vk::SamplerAddressMode>(info.addressModeU),
+    .addressModeV     = static_cast<vk::SamplerAddressMode>(info.addressModeV),
+    .addressModeW     = static_cast<vk::SamplerAddressMode>(info.addressModeW),
+    .mipLodBias       = std::min(info.mipLodBias, properties.limits.maxSamplerLodBias),
+    .anisotropyEnable = info.anisotropyEnable,
+    .maxAnisotropy    = properties.limits.maxSamplerAnisotropy,
+    .compareEnable    = info.compareEnable,
+    .compareOp        = static_cast<vk::CompareOp>(info.compareOp),
+    .minLod           = 0.0,
+    .maxLod           = vk::LodClampNone,
+    .borderColor      = vk::BorderColor::eFloatTransparentBlack
+  }));
+
+  m_impl->m_descriptorHeap.registerSampler(sampler);
+  sampler.m_impl->setDescriptorHeap(&m_impl->m_descriptorHeap);
+
+  return sampler;
 }
 
 }

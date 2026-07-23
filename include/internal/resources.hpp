@@ -38,6 +38,7 @@ private:
   VmaAllocation     m_allocation = nullptr;
   VkBuffer          m_buffer = nullptr;
   void*             m_map = nullptr;
+  u64               m_address = 0;
   u32               m_size = 0;
   bool              m_readable = false;
 
@@ -50,7 +51,8 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
-  void setResourceManager(ResourceManager*);
+  void setResourceManager(ResourceManager* p_resourceManager);
+  void setAddress(u64 address);
 
   VkBuffer buffer() const;
   void* map() const;
@@ -114,6 +116,29 @@ public:
   vk::ImageUsageFlags usage() const;
   u32 sampledHeapIndex() const;
   u32 storageHeapIndex() const;
+};
+
+class Sampler::Impl {
+  friend class Sampler;
+
+  DescriptorHeap* m_descriptorHeap = nullptr;
+  vkr::Sampler    m_sampler = nullptr;
+  u32             m_heapIndex = std::numeric_limits<u32>::max();
+
+public:
+  Impl(vkr::Sampler&&);
+  ~Impl();
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+
+  void setDescriptorHeap(DescriptorHeap* p_descriptorHeap);
+  void setHeapIndex(u32);
+
+  vk::Sampler sampler() const;
+  u32 heapIndex() const;
 };
 
 class Allocator {
@@ -202,6 +227,10 @@ public:
 };
 
 class DescriptorHeap {
+  static const u32          m_sampledBindingIndex = 0;
+  static const u32          m_storageBindingIndex = 1;
+  static const u32          m_samplerBindingIndex = 2;
+
   vkr::Device*              m_device = nullptr;
 
   vkr::DescriptorSetLayout  m_layout = nullptr;
@@ -210,6 +239,7 @@ class DescriptorHeap {
 
   FreeList                  m_sampledList;
   FreeList                  m_storageList;
+  FreeList                  m_samplerList;
 
 public:
   DescriptorHeap() = default;
@@ -221,8 +251,12 @@ public:
   DescriptorHeap& operator=(DescriptorHeap&&) = delete;
 
   void init(const vkr::PhysicalDevice& physicalDevice, vkr::Device* p_device);
+
   void registerImage(Image image);
   void unregisterImage(Image::Impl* image);
+
+  void registerSampler(Sampler sampler);
+  void unregisterSampler(Sampler::Impl* sampler);
 
   vk::DescriptorSetLayout layout() const;
   vk::DescriptorSet set() const;

@@ -57,6 +57,8 @@ public:
   Ring<Buffer> createBufferRing(u32, const Buffer::Info& info) const;
 
   Image createImage(const Image::Info& info) const;
+
+  Sampler createSampler(const Sampler::Info& info) const;
 };
 
 }

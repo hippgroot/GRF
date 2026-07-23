@@ -352,6 +352,24 @@ enum class IndexType {
   u32
 };
 
+enum class Filter {
+  Nearest = 0,
+  Linear  = 1
+};
+
+enum class MipmapMode {
+  Nearest = 0,
+  Linear  = 1
+};
+
+enum class AddressMode {
+  Repeat            = 0,
+  MirroredRepeat    = 1,
+  ClampToEdge       = 2,
+  ClampToBorder     = 3,
+  MirrorClampToEdge = 4
+};
+
 enum class ImageUsage : u32 {
   None            = 0u,
   Sampled         = 4u,

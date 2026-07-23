@@ -34,6 +34,8 @@ public:
   Buffer& operator=(const Buffer&) = default;
   Buffer& operator=(Buffer&&) = default;
 
+  u64 address() const;
+
   template <typename T>
     requires std::is_trivially_copyable_v<T> && (!std::ranges::contiguous_range<T>)
   void write(const T& data, u32 offset = 0u) const {
@@ -104,6 +106,40 @@ public:
   u32 sampledHeapIndex() const;
   u32 storageHeapIndex() const;
   void write(std::span<const std::byte> bytes, Layout finalLayout, u32 mip = 0) const;
+};
+
+class Sampler {
+  friend class DescriptorHeap;
+  friend class Device;
+
+public:
+  struct Info {
+    Filter      magFilter        = Filter::Linear;
+    Filter      minFilter        = Filter::Linear;
+    MipmapMode  mipmapMode       = MipmapMode::Linear;
+    AddressMode addressModeU     = AddressMode::Repeat;
+    AddressMode addressModeV     = AddressMode::Repeat;
+    AddressMode addressModeW     = AddressMode::Repeat;
+    f32         mipLodBias       = 0.0f;
+    bool        anisotropyEnable = false;
+    bool        compareEnable    = false;
+    CompareOp   compareOp        = CompareOp::Never;
+  };
+
+private:
+  class Impl;
+  std::shared_ptr<Impl> m_impl;
+
+public:
+  Sampler() = default;
+  ~Sampler() = default;
+
+  Sampler(const Sampler&) = default;
+  Sampler(Sampler&&) = default;
+  Sampler& operator=(const Sampler&) = default;
+  Sampler& operator=(Sampler&&) = default;
+
+  u32 heapIndex() const;
 };
 
 }

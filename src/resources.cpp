@@ -1,10 +1,5 @@
 #include "internal/log.hpp"
-#include "vulkan/vulkan.hpp"
 #include "internal/resources.hpp"
-
-#include <vulkan/vulkan_format_traits.hpp>
-
-#include <numeric>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -12,7 +7,15 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
+#include <vulkan/vulkan_format_traits.hpp>
+
+#include <numeric>
+
 namespace grf {
+
+u64 Buffer::address() const {
+  return m_impl->m_address;
+}
 
 void Buffer::writeData(std::span<const std::byte> data, u32 offset) const {
   if (data.size() > m_impl->m_size) {
@@ -73,6 +76,10 @@ Buffer::Impl::~Impl() {
 
 void Buffer::Impl::setResourceManager(ResourceManager* resourceManager) {
   m_resourceManager = resourceManager;
+}
+
+void Buffer::Impl::setAddress(u64 address) {
+  m_address = address;
 }
 
 VkBuffer Buffer::Impl::buffer() const {
@@ -230,6 +237,33 @@ u32 Image::Impl::sampledHeapIndex() const {
 
 u32 Image::Impl::storageHeapIndex() const {
   return m_storageHeapIndex;
+}
+
+u32 Sampler::heapIndex() const {
+  return m_impl->m_heapIndex;
+}
+
+Sampler::Impl::Impl(vkr::Sampler&& sampler) : m_sampler(std::move(sampler)) {}
+
+Sampler::Impl::~Impl() {
+  if (m_descriptorHeap)
+    m_descriptorHeap->unregisterSampler(this);
+}
+
+void Sampler::Impl::setDescriptorHeap(DescriptorHeap* p_descriptorHeap) {
+  m_descriptorHeap = p_descriptorHeap;
+}
+
+void Sampler::Impl::setHeapIndex(u32 index) {
+  m_heapIndex = index;
+}
+
+vk::Sampler Sampler::Impl::sampler() const {
+  return *m_sampler;
+}
+
+u32 Sampler::Impl::heapIndex() const {
+  return m_heapIndex;
 }
 
 Allocator::~Allocator() {
@@ -510,8 +544,6 @@ u32 FreeList::next() {
   return m_next++;
 }
 
-// TODO: defer reuse until the last submission indexing this slot completes
-// (tag with the queue's latest Sync and drain in updateResources)
 void FreeList::recycle(u32 index) {
   m_recycled.emplace(index);
 }
@@ -526,27 +558,37 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
 
   u32 sampledCount = std::min(65536u, limits.maxDescriptorSetUpdateAfterBindSampledImages);
   u32 storageCount = std::min(16384u, limits.maxDescriptorSetUpdateAfterBindStorageImages);
+  u32 samplerCount = std::min(256u, limits.maxDescriptorSetUpdateAfterBindSamplers);
 
   m_sampledList.setCapacity(sampledCount);
   m_storageList.setCapacity(storageCount);
+  m_samplerList.setCapacity(samplerCount);
 
-  std::array<vk::DescriptorSetLayoutBinding, 2> bindings{
+  std::array<vk::DescriptorSetLayoutBinding, 3> bindings{
     vk::DescriptorSetLayoutBinding{
-      .binding          = 0,
+      .binding          = m_sampledBindingIndex,
       .descriptorType   = vk::DescriptorType::eSampledImage,
       .descriptorCount  = sampledCount,
       .stageFlags       = vk::ShaderStageFlagBits::eAll
     },
     vk::DescriptorSetLayoutBinding{
-      .binding          = 1,
+      .binding          = m_storageBindingIndex,
       .descriptorType   = vk::DescriptorType::eStorageImage,
       .descriptorCount  = storageCount,
       .stageFlags       = vk::ShaderStageFlagBits::eAll,
+    },
+    vk::DescriptorSetLayoutBinding{
+      .binding          = m_samplerBindingIndex,
+      .descriptorType   = vk::DescriptorType::eSampler,
+      .descriptorCount  = samplerCount,
+      .stageFlags       = vk::ShaderStageFlagBits::eAll
     }
   };
 
-  std::array<vk::DescriptorBindingFlags, 2> bindingFlags = {};
-  bindingFlags.fill(vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound);
+  std::array<vk::DescriptorBindingFlags, 3> bindingFlags;
+  bindingFlags.fill(
+    vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound
+  );
 
   vk::StructureChain<vk::DescriptorSetLayoutCreateInfo, vk::DescriptorSetLayoutBindingFlagsCreateInfo> layoutChain = {
     vk::DescriptorSetLayoutCreateInfo{
@@ -562,7 +604,7 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
 
   m_layout = m_device->createDescriptorSetLayout(layoutChain.get<vk::DescriptorSetLayoutCreateInfo>());
 
-  std::array<vk::DescriptorPoolSize, 2> poolSizes = {
+  std::array<vk::DescriptorPoolSize, 3> poolSizes = {
     vk::DescriptorPoolSize{
       .type             = vk::DescriptorType::eSampledImage,
       .descriptorCount  = sampledCount
@@ -570,6 +612,10 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
     vk::DescriptorPoolSize{
       .type             = vk::DescriptorType::eStorageImage,
       .descriptorCount  = storageCount
+    },
+    vk::DescriptorPoolSize{
+      .type             = vk::DescriptorType::eSampler,
+      .descriptorCount  = samplerCount
     }
   };
 
@@ -608,7 +654,7 @@ void DescriptorHeap::registerImage(Image image) {
     u32 index = m_sampledList.next();
     writes.emplace_back(vk::WriteDescriptorSet{
       .dstSet           = *m_set,
-      .dstBinding       = 0,
+      .dstBinding       = m_sampledBindingIndex,
       .dstArrayElement  = index,
       .descriptorCount  = 1,
       .descriptorType   = vk::DescriptorType::eSampledImage,
@@ -621,7 +667,7 @@ void DescriptorHeap::registerImage(Image image) {
     u32 index = m_storageList.next();
     writes.emplace_back(vk::WriteDescriptorSet{
       .dstSet           = *m_set,
-      .dstBinding       = 1,
+      .dstBinding       = m_storageBindingIndex,
       .dstArrayElement  = index,
       .descriptorCount  = 1,
       .descriptorType   = vk::DescriptorType::eStorageImage,
@@ -652,6 +698,27 @@ vk::DescriptorSetLayout DescriptorHeap::layout() const {
 
 vk::DescriptorSet DescriptorHeap::set() const {
   return *m_set;
+}
+
+void DescriptorHeap::registerSampler(Sampler sampler) {
+  vk::DescriptorImageInfo info{
+    .sampler = sampler.m_impl->sampler()
+  };
+
+  u32 index = m_samplerList.next();
+  m_device->updateDescriptorSets(vk::WriteDescriptorSet{
+    .dstSet           = m_set,
+    .dstBinding       = m_samplerBindingIndex,
+    .dstArrayElement  = index,
+    .descriptorCount  = 1,
+    .descriptorType   = vk::DescriptorType::eSampler,
+    .pImageInfo       = &info
+  }, nullptr);
+  sampler.m_impl->setHeapIndex(index);
+}
+
+void DescriptorHeap::unregisterSampler(Sampler::Impl* sampler) {
+  m_samplerList.recycle(sampler->heapIndex());
 }
 
 }

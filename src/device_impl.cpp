@@ -235,6 +235,7 @@ Device::Impl::PDOutput Device::Impl::choosePhysicalDevice() {
     auto f12 = features.get<vk::PhysicalDeviceVulkan12Features>();
 
     if (
+      !f2.features.samplerAnisotropy                    ||
       !f2.features.shaderStorageImageReadWithoutFormat  ||
       !f2.features.shaderStorageImageWriteWithoutFormat ||
       !f12.descriptorIndexing                           ||
@@ -317,6 +318,7 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
     },
     vk::PhysicalDeviceFeatures2{
       .features = {
+        .samplerAnisotropy                    = true,
         .shaderStorageImageReadWithoutFormat  = true,
         .shaderStorageImageWriteWithoutFormat = true,
       }
