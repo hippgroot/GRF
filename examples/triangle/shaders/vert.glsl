@@ -1,35 +1,26 @@
 #version 460
+#extension GL_EXT_buffer_reference : require
 
-#define PI 3.1415926538f
+struct Vertex {
+  vec2 pos;
+  vec2 uv;
+};
 
-layout(location = 0) out vec3 _Albedo;
+layout(buffer_reference, std430) readonly buffer VertexBuffer {
+  Vertex vertices[];
+};
+
+layout(push_constant) uniform PC {
+  VertexBuffer  vertexBuffer;
+  uint          texIndex;
+  uint          samplerIndex;
+} _Constants;
+
+layout(location = 0) out vec2 _UV;
 
 void main() {
-  const vec2 positions[3] = vec2[](
-    vec2(-0.5, 0.5),
-    vec2(0.5, 0.5),
-    vec2(0.0, -0.5)
-  );
+  Vertex vertex = _Constants.vertexBuffer.vertices[gl_VertexIndex];
 
-  const vec2 uvs[3] = vec2[](
-    vec2(0.0, 1.0),
-    vec2(1.0, 1.0),
-    vec2(0.5, 0.0)
-  );
-
-  vec2 pos = positions[gl_VertexIndex];
-  vec2 uv = uvs[gl_VertexIndex];
-
-  float theta = uv.x * PI;
-  float ct = cos(theta);
-  float st = sin(theta);
-
-  float phi = uv.y * 2.0 * PI;
-  float cp = cos(phi);
-  float sp = sin(phi);
-
-  vec3 albedo = 0.5 * (vec3(cp * st, sp * st, ct) + 1.0);
-
-  gl_Position = vec4(pos, 0.0, 1.0);
-  _Albedo = albedo;
+  gl_Position = vec4(vertex.pos, 0.0f, 1.0f);
+  _UV = vertex.uv;
 }

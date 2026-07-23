@@ -5,6 +5,17 @@
 namespace fs = std::filesystem;
 using namespace grf;
 
+struct Vertex {
+  float x, y;
+  float u, v;
+};
+
+struct PC {
+  u64 vertBufAddr;
+  u32 texIndex;
+  u32 samplerIndex;
+};
+
 int main() {
   const u32 _flightFrames = 2;
 
@@ -37,11 +48,21 @@ int main() {
     }
   );
 
-  Buffer buffer = device.createBuffer(Buffer::Info{
+  Buffer vertexBuffer = device.createBuffer(Buffer::Info{
+    .size   = 3 * sizeof(Vertex),
+    .intent = BufferIntent::GPUOnly
+  });
+  vertexBuffer.write(std::array<Vertex, 3>{
+    Vertex{ -0.5f, 0.5f, 0.0f, 1.0f },
+    Vertex{ 0.5f,  0.5f, 1.0f, 1.0f },
+    Vertex{ 0.0f, -0.5f, 0.5f, 0.0f }
+  });
+
+  Buffer indexBuffer = device.createBuffer(Buffer::Info{
     .size   = 3 * sizeof(u32),
     .intent = BufferIntent::GPUOnly
   });
-  buffer.write(std::vector<u32>{ 0, 1, 2 });
+  indexBuffer.write(std::array<u32, 3>{ 0, 1, 2 });
 
   Image testImage;
 {
@@ -56,6 +77,8 @@ int main() {
   testImage.write(data.bytes, Layout::TransferDstOptimal);
 }
 
+  Sampler sampler = device.createSampler({});
+
   auto cmdRing = queue.getCmdRing(_flightFrames);
   auto syncRing = queue.getSyncRing(_flightFrames);
 
@@ -67,13 +90,12 @@ int main() {
     auto& sync = syncRing.next();
     device.wait({ sync });
 
-    // flush staging before recording so tracked image layouts match what this frame's commands see
     Sync resourceSync = device.updateResources();
 
     auto& cmd = cmdRing.next();
 
     auto [scImg, imgSync] = swapchain.acquireNextImage();
-    ColorAttachment renderTargetAttachment{
+    ColorAttachment scImgAttachment{
       .img      = scImg,
       .loadOp   = LoadOp::Clear,
       .storeOp  = StoreOp::Store
@@ -81,16 +103,23 @@ int main() {
 
     cmd.begin();
 
-    if (!mipsGenerated) {
+    if (!mipsGenerated) [[unlikely]] {
       cmd.generateMips(testImage, Layout::ShaderReadOptimal);
       mipsGenerated = true;
     }
 
     cmd.transition(scImg, Layout::ColorAttachmentOptimal);
-    cmd.beginRendering(scImg.width(), scImg.height(), { renderTargetAttachment });
+    cmd.beginRendering(scImg.width(), scImg.height(), { scImgAttachment });
+
+    PC pc{
+      .vertBufAddr  = vertexBuffer.address(),
+      .texIndex     = testImage.sampledHeapIndex(),
+      .samplerIndex = sampler.heapIndex()
+    };
 
     cmd.bindPipeline(pipeline);
-    cmd.bindIndexBuffer(buffer);
+    cmd.bindIndexBuffer(indexBuffer);
+    cmd.pushConstants(std::as_bytes(std::span{&pc, 1}));
     cmd.drawIndexed(3);
 
     cmd.endRendering();
