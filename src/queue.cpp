@@ -191,8 +191,8 @@ void CommandBuffer::beginRendering(
   for (const auto& c : colors) {
     vk::ClearValue cv{ .color = vk::ClearColorValue(c.clearValue) };
     colorInfos.push_back(vk::RenderingAttachmentInfo{
-      .imageView   = c.img.m_impl->view(),
-      .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+      .imageView   = std::visit([](const auto& img){ return img.m_impl->view(); }, c.img),
+      .imageLayout = std::visit([](const auto& img){ return img.m_impl->layout(); }, c.img),
       .loadOp      = static_cast<vk::AttachmentLoadOp>(c.loadOp),
       .storeOp     = static_cast<vk::AttachmentStoreOp>(c.storeOp),
       .clearValue  = cv

@@ -5,16 +5,17 @@
 
 #include <memory>
 #include <span>
+#include <variant>
 
 namespace grf {
 
 class Pipeline;
 
 struct ColorAttachment {
-  SwapchainImage        img;
-  LoadOp                loadOp     = LoadOp::Load;
-  StoreOp               storeOp    = StoreOp::Store;
-  std::array<float, 4>  clearValue = { 0.0f, 0.0f, 0.0f, 1.0f };
+  std::variant<SwapchainImage, Image> img;
+  LoadOp                              loadOp     = LoadOp::Load;
+  StoreOp                             storeOp    = StoreOp::Store;
+  std::array<float, 4>                clearValue = { 0.0f, 0.0f, 0.0f, 1.0f };
 };
 
 struct DepthAttachment {
