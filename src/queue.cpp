@@ -5,6 +5,140 @@
 #include "internal/resources.hpp"
 #include "internal/swapchain.hpp"
 
+namespace {
+
+struct SyncScope {
+  vk::PipelineStageFlags2 stage;
+  vk::AccessFlags2        access;
+};
+
+constexpr vk::PipelineStageFlags2 g_shaderStages =
+  vk::PipelineStageFlagBits2::eVertexShader   |
+  vk::PipelineStageFlagBits2::eFragmentShader |
+  vk::PipelineStageFlagBits2::eComputeShader;
+
+SyncScope srcScope(vk::ImageLayout layout) {
+  switch (layout) {
+    case vk::ImageLayout::eUndefined:
+    case vk::ImageLayout::ePresentSrcKHR:
+      return { vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone };
+    case vk::ImageLayout::eGeneral:
+      return { g_shaderStages, vk::AccessFlagBits2::eShaderWrite };
+    case vk::ImageLayout::eColorAttachmentOptimal:
+      return { vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentWrite };
+    case vk::ImageLayout::eDepthAttachmentOptimal:
+      return { vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests, vk::AccessFlagBits2::eDepthStencilAttachmentWrite };
+    case vk::ImageLayout::eShaderReadOnlyOptimal:
+      return { g_shaderStages, vk::AccessFlagBits2::eNone };
+    case vk::ImageLayout::eTransferSrcOptimal:
+      return { vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eNone };
+    case vk::ImageLayout::eTransferDstOptimal:
+      return { vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite };
+    default:
+      return { vk::PipelineStageFlagBits2::eAllCommands, vk::AccessFlagBits2::eMemoryWrite };
+  }
+}
+
+SyncScope dstScope(vk::ImageLayout layout) {
+  switch (layout) {
+    case vk::ImageLayout::eGeneral:
+      return { g_shaderStages, vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite };
+    case vk::ImageLayout::eColorAttachmentOptimal:
+      return { vk::PipelineStageFlagBits2::eColorAttachmentOutput, vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite };
+    case vk::ImageLayout::eDepthAttachmentOptimal:
+      return { vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests, vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite };
+    case vk::ImageLayout::eShaderReadOnlyOptimal:
+      return { g_shaderStages, vk::AccessFlagBits2::eShaderSampledRead };
+    case vk::ImageLayout::eTransferSrcOptimal:
+      return { vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferRead };
+    case vk::ImageLayout::eTransferDstOptimal:
+      return { vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite };
+    case vk::ImageLayout::ePresentSrcKHR:
+      return { vk::PipelineStageFlagBits2::eAllCommands, vk::AccessFlagBits2::eNone };
+    default:
+      return { vk::PipelineStageFlagBits2::eAllCommands, vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite };
+  }
+}
+
+bool has(grf::BufferStage stages, grf::BufferStage flag) {
+  return static_cast<grf::u32>(stages & flag) != 0u;
+}
+
+SyncScope bufferSrcScope(grf::BufferStage stages) {
+  SyncScope s{ vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone };
+
+  if (has(stages, grf::BufferStage::Transfer)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eTransfer;
+    s.access |= vk::AccessFlagBits2::eTransferWrite;
+  }
+  if (has(stages, grf::BufferStage::Indirect)) {
+    s.stage |= vk::PipelineStageFlagBits2::eDrawIndirect;
+  }
+  if (has(stages, grf::BufferStage::Index)) {
+    s.stage |= vk::PipelineStageFlagBits2::eIndexInput;
+  }
+  if (has(stages, grf::BufferStage::VertexShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eVertexShader;
+    s.access |= vk::AccessFlagBits2::eShaderWrite;
+  }
+  if (has(stages, grf::BufferStage::FragmentShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eFragmentShader;
+    s.access |= vk::AccessFlagBits2::eShaderWrite;
+  }
+  if (has(stages, grf::BufferStage::ComputeShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eComputeShader;
+    s.access |= vk::AccessFlagBits2::eShaderWrite;
+  }
+
+  return s;
+}
+
+SyncScope bufferDstScope(grf::BufferStage stages) {
+  SyncScope s{ vk::PipelineStageFlagBits2::eNone, vk::AccessFlagBits2::eNone };
+
+  if (has(stages, grf::BufferStage::Transfer)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eTransfer;
+    s.access |= vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite;
+  }
+  if (has(stages, grf::BufferStage::Indirect)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eDrawIndirect;
+    s.access |= vk::AccessFlagBits2::eIndirectCommandRead;
+  }
+  if (has(stages, grf::BufferStage::Index)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eIndexInput;
+    s.access |= vk::AccessFlagBits2::eIndexRead;
+  }
+  if (has(stages, grf::BufferStage::VertexShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eVertexShader;
+    s.access |= vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+  }
+  if (has(stages, grf::BufferStage::FragmentShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eFragmentShader;
+    s.access |= vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+  }
+  if (has(stages, grf::BufferStage::ComputeShader)) {
+    s.stage  |= vk::PipelineStageFlagBits2::eComputeShader;
+    s.access |= vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eShaderWrite;
+  }
+
+  return s;
+}
+
+vk::ImageAspectFlags aspectOf(vk::Format format) {
+  switch (format) {
+    case vk::Format::eD16Unorm:
+    case vk::Format::eX8D24UnormPack32:
+    case vk::Format::eD32Sfloat:          return vk::ImageAspectFlagBits::eDepth;
+    case vk::Format::eS8Uint:             return vk::ImageAspectFlagBits::eStencil;
+    case vk::Format::eD16UnormS8Uint:
+    case vk::Format::eD24UnormS8Uint:
+    case vk::Format::eD32SfloatS8Uint:    return vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+    default:                              return vk::ImageAspectFlagBits::eColor;
+  }
+}
+
+}
+
 namespace grf {
 
 template class Ring<CommandBuffer>;
@@ -144,14 +278,18 @@ void CommandBuffer::dispatchIndirect(Buffer buffer, u32 offset) const {
 }
 
 void CommandBuffer::transition(SwapchainImage image, Layout layout) const {
-  vk::ImageLayout to = static_cast<vk::ImageLayout>(layout);
+  vk::ImageLayout from = image.m_impl->layout();
+  vk::ImageLayout to   = static_cast<vk::ImageLayout>(layout);
+
+  auto [srcStage, srcAccess] = srcScope(from);
+  auto [dstStage, dstAccess] = dstScope(to);
 
   vk::ImageMemoryBarrier2 barrier{
-    .srcStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
-    .srcAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    .dstStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
-    .dstAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    .oldLayout        = image.m_impl->layout(),
+    .srcStageMask     = srcStage,
+    .srcAccessMask    = srcAccess,
+    .dstStageMask     = dstStage,
+    .dstAccessMask    = dstAccess,
+    .oldLayout        = from,
     .newLayout        = to,
     .image            = image.m_impl->image(),
     .subresourceRange = {
@@ -170,18 +308,22 @@ void CommandBuffer::transition(SwapchainImage image, Layout layout) const {
 }
 
 void CommandBuffer::transition(Image image, Layout layout) const  {
-  vk::ImageLayout to = static_cast<vk::ImageLayout>(layout);
+  vk::ImageLayout from = image.m_impl->layout();
+  vk::ImageLayout to   = static_cast<vk::ImageLayout>(layout);
+
+  auto [srcStage, srcAccess] = srcScope(from);
+  auto [dstStage, dstAccess] = dstScope(to);
 
   vk::ImageMemoryBarrier2 barrier{
-    .srcStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
-    .srcAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    .dstStageMask     = vk::PipelineStageFlagBits2::eAllCommands,
-    .dstAccessMask    = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    .oldLayout        = image.m_impl->layout(),
+    .srcStageMask     = srcStage,
+    .srcAccessMask    = srcAccess,
+    .dstStageMask     = dstStage,
+    .dstAccessMask    = dstAccess,
+    .oldLayout        = from,
     .newLayout        = to,
     .image            = image.m_impl->image(),
     .subresourceRange = {
-      .aspectMask = vk::ImageAspectFlagBits::eColor,
+      .aspectMask = aspectOf(image.m_impl->format()),
       .levelCount = vk::RemainingMipLevels,
       .layerCount = 1
     }
@@ -193,6 +335,40 @@ void CommandBuffer::transition(Image image, Layout layout) const  {
   });
 
   image.m_impl->setLayout(to);
+}
+
+void CommandBuffer::barrier(Buffer buffer, BufferStage src, BufferStage dst) const {
+  auto [srcStage, srcAccess] = bufferSrcScope(src);
+  auto [dstStage, dstAccess] = bufferDstScope(dst);
+
+  vk::BufferMemoryBarrier2 b{
+    .srcStageMask  = srcStage,
+    .srcAccessMask = srcAccess,
+    .dstStageMask  = dstStage,
+    .dstAccessMask = dstAccess,
+    .buffer        = buffer.m_impl->buffer(),
+    .offset        = 0,
+    .size          = vk::WholeSize
+  };
+
+  m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
+    .bufferMemoryBarrierCount = 1,
+    .pBufferMemoryBarriers    = &b
+  });
+}
+
+void CommandBuffer::barrier() const {
+  vk::MemoryBarrier2 b{
+    .srcStageMask  = vk::PipelineStageFlagBits2::eAllCommands,
+    .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+    .dstStageMask  = vk::PipelineStageFlagBits2::eAllCommands,
+    .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite
+  };
+
+  m_impl->m_cmd.pipelineBarrier2(vk::DependencyInfo{
+    .memoryBarrierCount = 1,
+    .pMemoryBarriers    = &b
+  });
 }
 
 void CommandBuffer::copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOffset, u32 size) const {
@@ -236,12 +412,10 @@ void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
 
   vk::Image img = image.m_impl->image();
 
-  auto barrier = [&](
-    u32 baseMip, u32 count,
-    vk::ImageLayout from, vk::ImageLayout to,
-    vk::PipelineStageFlags2 srcStage, vk::AccessFlags2 srcAccess,
-    vk::PipelineStageFlags2 dstStage, vk::AccessFlags2 dstAccess
-  ) {
+  auto barrier = [&](u32 baseMip, u32 count, vk::ImageLayout from, vk::ImageLayout to) {
+    auto [srcStage, srcAccess] = srcScope(from);
+    auto [dstStage, dstAccess] = dstScope(to);
+
     vk::ImageMemoryBarrier2 b{
       .srcStageMask     = srcStage,
       .srcAccessMask    = srcAccess,
@@ -251,7 +425,7 @@ void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
       .newLayout        = to,
       .image            = img,
       .subresourceRange = {
-        .aspectMask   = vk::ImageAspectFlagBits::eColor,
+        .aspectMask   = aspectOf(image.m_impl->format()),
         .baseMipLevel = baseMip,
         .levelCount   = count,
         .layerCount   = 1
@@ -274,18 +448,8 @@ void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
 
   vk::ImageLayout curr = image.m_impl->layout();
 
-  barrier(0, 1, curr, vk::ImageLayout::eTransferSrcOptimal,
-    vk::PipelineStageFlagBits2::eAllCommands,
-    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    vk::PipelineStageFlagBits2::eTransfer,
-    vk::AccessFlagBits2::eTransferRead);
-
-  barrier(1, mips - 1, curr, vk::ImageLayout::eTransferDstOptimal,
-    vk::PipelineStageFlagBits2::eAllCommands,
-    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-    vk::PipelineStageFlagBits2::eTransfer,
-    vk::AccessFlagBits2::eTransferWrite
-  );
+  barrier(0, 1, curr, vk::ImageLayout::eTransferSrcOptimal);
+  barrier(1, mips - 1, curr, vk::ImageLayout::eTransferDstOptimal);
 
   for (u32 i = 1; i < mips; ++i) {
     vk::ImageBlit2 region{
@@ -313,19 +477,10 @@ void CommandBuffer::generateMips(Image image, Layout finalLayout) const {
       .filter         = vk::Filter::eLinear
     });
 
-    barrier(i, 1,
-      vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
-      vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
-      vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferRead
-    );
+    barrier(i, 1, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal);
   }
 
-  barrier(0, mips,
-    vk::ImageLayout::eTransferSrcOptimal, static_cast<vk::ImageLayout>(finalLayout),
-    vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferWrite,
-    vk::PipelineStageFlagBits2::eAllCommands,
-    vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite
-  );
+  barrier(0, mips, vk::ImageLayout::eTransferSrcOptimal, static_cast<vk::ImageLayout>(finalLayout));
 
   image.m_impl->setLayout(static_cast<vk::ImageLayout>(finalLayout));
 }

@@ -378,6 +378,17 @@ enum class ImageUsage : u32 {
   DepthAttachment = 32u
 };
 
+enum class BufferStage : u32 {
+  None            = 0u,
+  Transfer        = 1u,
+  Indirect        = 2u,
+  Index           = 4u,
+  VertexShader    = 8u,
+  FragmentShader  = 16u,
+  ComputeShader   = 32u,
+  All             = 63u
+};
+
 struct BlendState {
   bool        enable          = false;
   BlendFactor srcColorFactor  = BlendFactor::One;
@@ -469,5 +480,21 @@ inline constexpr grf::ImageUsage& operator|=(grf::ImageUsage& lhs, grf::ImageUsa
 }
 
 inline constexpr grf::ImageUsage& operator&=(grf::ImageUsage& lhs, grf::ImageUsage rhs) {
+  return lhs = lhs & rhs;
+}
+
+inline constexpr grf::BufferStage operator|(grf::BufferStage lhs, grf::BufferStage rhs) {
+  return static_cast<grf::BufferStage>(static_cast<grf::u32>(lhs) | static_cast<grf::u32>(rhs));
+}
+
+inline constexpr grf::BufferStage operator&(grf::BufferStage lhs, grf::BufferStage rhs) {
+  return static_cast<grf::BufferStage>(static_cast<grf::u32>(lhs) & static_cast<grf::u32>(rhs));
+}
+
+inline constexpr grf::BufferStage& operator|=(grf::BufferStage& lhs, grf::BufferStage rhs) {
+  return lhs = lhs | rhs;
+}
+
+inline constexpr grf::BufferStage& operator&=(grf::BufferStage& lhs, grf::BufferStage rhs) {
   return lhs = lhs & rhs;
 }

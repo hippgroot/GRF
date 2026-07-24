@@ -71,6 +71,8 @@ public:
 
   void transition(SwapchainImage image, Layout layout) const;
   void transition(Image image, Layout layout) const;
+  void barrier(Buffer buffer, BufferStage src = BufferStage::All, BufferStage dst = BufferStage::All) const;
+  void barrier() const;
   void copyBuffer(Buffer src, Buffer dst, u32 srcOffset, u32 dstOffset, u32 size) const;
   void bufferImageCopy(Buffer src, Image dst, u32 bufferOffset = 0, u32 mip = 0) const;
   void generateMips(Image image, Layout finalLayout) const;
