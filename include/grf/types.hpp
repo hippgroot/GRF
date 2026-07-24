@@ -402,6 +402,27 @@ struct GraphicsPipelineSettings {
   SampleCount             sampleCount     = SampleCount::e1;
 };
 
+struct DrawIndirectCommand {
+  u32 vertexCount   = 0;
+  u32 instanceCount = 1;
+  u32 firstVertex   = 0;
+  u32 firstInstance = 0;
+};
+
+struct DrawIndexedIndirectCommand {
+  u32 indexCount    = 0;
+  u32 instanceCount = 1;
+  u32 firstIndex    = 0;
+  i32 vertexOffset  = 0;
+  u32 firstInstance = 0;
+};
+
+struct DispatchIndirectCommand {
+  u32 x = 1;
+  u32 y = 1;
+  u32 z = 1;
+};
+
 template <typename T>
 class Ring {
   std::vector<T>  m_data;

@@ -59,11 +59,15 @@ public:
   void beginRendering(u32 width, u32 height, std::span<const ColorAttachment> attachments) const;
   void endRendering() const;
 
-  void bindIndexBuffer(const Buffer& buffer, IndexType type = IndexType::u32) const;
-  void bindPipeline(const Pipeline& pipeline) const;
+  void bindIndexBuffer(Buffer buffer, IndexType type = IndexType::u32) const;
+  void bindPipeline(Pipeline pipeline) const;
   void pushConstants(std::span<const std::byte> data, u32 offset = 0) const;
-  void draw(u32 vertexCount) const;
-  void drawIndexed(u32 indexCount) const;
+  void draw(u32 vertexCount, u32 instanceCount = 1, u32 firstVertex = 0, u32 firstInstance = 0) const;
+  void drawIndirect(Buffer buffer, u32 offset = 0, u32 drawCount = 1, u32 stride = sizeof(DrawIndirectCommand)) const;
+  void drawIndexed(u32 indexCount, u32 instanceCount = 1, u32 firstIndex = 0, i32 vertexOffset = 0, u32 firstInstance = 0) const;
+  void drawIndexedIndirect(Buffer buffer, u32 offset = 0, u32 drawCount = 1, u32 stride = sizeof(DrawIndexedIndirectCommand)) const;
+  void dispatch(u32 x, u32 y = 1, u32 z = 1) const;
+  void dispatchIndirect(Buffer buffer, u32 offset = 0) const;
 
   void transition(SwapchainImage image, Layout layout) const;
   void transition(Image image, Layout layout) const;

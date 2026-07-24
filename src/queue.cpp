@@ -95,11 +95,11 @@ void CommandBuffer::endRendering() const {
   m_impl->m_cmd.endRendering();
 }
 
-void CommandBuffer::bindIndexBuffer(const Buffer& buffer, IndexType type) const {
+void CommandBuffer::bindIndexBuffer(Buffer buffer, IndexType type) const {
   m_impl->m_cmd.bindIndexBuffer(buffer.m_impl->buffer(), 0, static_cast<vk::IndexType>(type));
 }
 
-void CommandBuffer::bindPipeline(const Pipeline& pipeline) const {
+void CommandBuffer::bindPipeline(Pipeline pipeline) const {
   vk::PipelineBindPoint bindPoint = pipeline.m_impl->type() == PipelineType::Graphics ?
     vk::PipelineBindPoint::eGraphics : vk::PipelineBindPoint::eCompute;
 
@@ -119,12 +119,28 @@ void CommandBuffer::pushConstants(std::span<const std::byte> data, u32 offset) c
   });
 }
 
-void CommandBuffer::draw(u32 vertexCount) const {
-  m_impl->m_cmd.draw(vertexCount, 1, 0, 0);
+void CommandBuffer::draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) const {
+  m_impl->m_cmd.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void CommandBuffer::drawIndexed(u32 indexCount) const {
-  m_impl->m_cmd.drawIndexed(indexCount, 1, 0, 0, 0);
+void CommandBuffer::drawIndirect(Buffer buffer, u32 offset, u32 drawCount, u32 stride) const {
+  m_impl->m_cmd.drawIndirect(buffer.m_impl->buffer(), offset, drawCount, stride);
+}
+
+void CommandBuffer::drawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance) const {
+  m_impl->m_cmd.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+void CommandBuffer::drawIndexedIndirect(Buffer buffer, u32 offset, u32 drawCount, u32 stride) const {
+  m_impl->m_cmd.drawIndexedIndirect(buffer.m_impl->buffer(), offset, drawCount, stride);
+}
+
+void CommandBuffer::dispatch(u32 x, u32 y, u32 z) const {
+  m_impl->m_cmd.dispatch(x, y, z);
+}
+
+void CommandBuffer::dispatchIndirect(Buffer buffer, u32 offset) const {
+  m_impl->m_cmd.dispatchIndirect(buffer.m_impl->buffer(), offset);
 }
 
 void CommandBuffer::transition(SwapchainImage image, Layout layout) const {

@@ -318,9 +318,10 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
     },
     vk::PhysicalDeviceFeatures2{
       .features = {
+        .multiDrawIndirect                    = true,
         .samplerAnisotropy                    = true,
         .shaderStorageImageReadWithoutFormat  = true,
-        .shaderStorageImageWriteWithoutFormat = true,
+        .shaderStorageImageWriteWithoutFormat = true
       }
     },
     vk::PhysicalDeviceVulkan12Features{
