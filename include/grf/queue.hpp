@@ -1,5 +1,6 @@
 #pragma once
 
+#include "./resources.hpp"
 #include "./swapchain.hpp"
 
 #include <memory>
@@ -7,15 +8,20 @@
 
 namespace grf {
 
-class Buffer;
 class Pipeline;
-class Image;
 
 struct ColorAttachment {
   SwapchainImage        img;
   LoadOp                loadOp     = LoadOp::Load;
   StoreOp               storeOp    = StoreOp::Store;
   std::array<float, 4>  clearValue = { 0.0f, 0.0f, 0.0f, 1.0f };
+};
+
+struct DepthAttachment {
+  Image   img;
+  LoadOp  loadOp     = LoadOp::Load;
+  StoreOp storeOp    = StoreOp::Store;
+  f32     clearValue = 1.0f;
 };
 
 class Sync {
@@ -56,7 +62,7 @@ public:
 
   void begin() const;
   void end() const;
-  void beginRendering(u32 width, u32 height, std::span<const ColorAttachment> attachments) const;
+  void beginRendering(u32 width, u32 height, std::span<const ColorAttachment> colors, std::optional<DepthAttachment> depth = std::nullopt) const;
   void endRendering() const;
 
   void bindIndexBuffer(Buffer buffer, IndexType type = IndexType::u32) const;

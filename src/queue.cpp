@@ -184,7 +184,7 @@ void CommandBuffer::end() const {
 }
 
 void CommandBuffer::beginRendering(
-  u32 width, u32 height, std::span<const ColorAttachment> colors
+  u32 width, u32 height, std::span<const ColorAttachment> colors, std::optional<DepthAttachment> depth
 ) const {
   std::vector<vk::RenderingAttachmentInfo> colorInfos;
   colorInfos.reserve(colors.size());
@@ -199,6 +199,18 @@ void CommandBuffer::beginRendering(
     });
   }
 
+  vk::RenderingAttachmentInfo depthInfo;
+  if (depth.has_value()) {
+    vk::ClearValue cv{ .depthStencil = vk::ClearDepthStencilValue(depth->clearValue) };
+    depthInfo = vk::RenderingAttachmentInfo {
+      .imageView    = depth->img.m_impl->view(),
+      .imageLayout  = depth->img.m_impl->layout(),
+      .loadOp       = static_cast<vk::AttachmentLoadOp>(depth->loadOp),
+      .storeOp      = static_cast<vk::AttachmentStoreOp>(depth->storeOp),
+      .clearValue   = cv
+    };
+  }
+
   vk::Rect2D area{
     .offset = { 0, 0 },
     .extent = { width, height }
@@ -209,7 +221,7 @@ void CommandBuffer::beginRendering(
     .layerCount           = 1,
     .colorAttachmentCount = static_cast<uint32_t>(colorInfos.size()),
     .pColorAttachments    = colorInfos.data(),
-    .pDepthAttachment     = nullptr
+    .pDepthAttachment     = depth.has_value() ? &depthInfo : nullptr
   });
 
   vk::Viewport viewport{
