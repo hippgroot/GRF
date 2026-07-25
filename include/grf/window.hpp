@@ -53,12 +53,15 @@ public:
   u32 height() const;
 
   void pollEvents();
+
   bool isPressed(Key key) const;
   bool isJustPressed(Key key) const;
   bool isJustReleased(Key key) const;
+
   bool isPressed(MouseButton button) const;
   bool isJustPressed(MouseButton button) const;
   bool isJustReleased(MouseButton button) const;
+
   vec2 cursorPosition() const;
   vec2 cursorDelta() const;
 };
