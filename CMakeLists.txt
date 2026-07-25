@@ -34,6 +34,16 @@ add_subdirectory(external/glfw)
 
 add_subdirectory(external/vma)
 
+add_library(glm INTERFACE)
+target_include_directories(glm SYSTEM INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/glm>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+target_compile_definitions(glm INTERFACE
+  GLM_FORCE_RADIANS
+  GLM_FORCE_DEPTH_ZERO_TO_ONE
+)
+
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE ${CMAKE_SOURCE_DIR}/external/stb)
 
@@ -85,12 +95,14 @@ target_compile_definitions(grf PRIVATE
   $<$<CONFIG:Debug>:GRF_ENABLE_VALIDATION>
 )
 
-target_link_libraries(grf PRIVATE
-  Vulkan::Vulkan
-  Vulkan::shaderc_combined
-  $<BUILD_INTERFACE:glfw>
-  $<INSTALL_INTERFACE:glfw>
-  $<BUILD_INTERFACE:GPUOpen::VulkanMemoryAllocator>
+target_link_libraries(grf
+  PUBLIC glm
+  PRIVATE
+    Vulkan::Vulkan
+    Vulkan::shaderc_combined
+    $<BUILD_INTERFACE:glfw>
+    $<INSTALL_INTERFACE:glfw>
+    $<BUILD_INTERFACE:GPUOpen::VulkanMemoryAllocator>
 )
 
 if(MINGW)
@@ -105,7 +117,7 @@ endif()
 
 include(CMakePackageConfigHelpers)
 
-install(TARGETS grf EXPORT grf-targets
+install(TARGETS grf glm EXPORT grf-targets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -113,6 +125,14 @@ install(TARGETS grf EXPORT grf-targets
 
 install(DIRECTORY ${GRF_INCLUDE_DIR}/grf
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/external/glm/glm
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING
+    PATTERN "*.hpp"
+    PATTERN "*.h"
+    PATTERN "*.inl"
 )
 
 install(EXPORT grf-targets
