@@ -1,26 +1,22 @@
 #version 460
-#extension GL_EXT_buffer_reference : require
 
-struct Vertex {
-  vec2 pos;
-  vec2 uv;
-};
+layout(location = 0) out vec3 _Color;
 
-layout(buffer_reference, std430) readonly buffer VertexBuffer {
-  Vertex vertices[];
-};
+const vec2 _Positions[3] = vec2[](
+  vec2(-0.5f, 0.5f),
+  vec2(0.5f, 0.5f),
+  vec2(0.0f, -0.5f)
+);
 
-layout(push_constant) uniform PC {
-  VertexBuffer  vertexBuffer;
-  uint          texIndex;
-  uint          samplerIndex;
-} _Constants;
-
-layout(location = 0) out vec2 _UV;
+const vec3 _Colors[3] = vec3[](
+  vec3(1.0f, 0.0f, 0.0f),
+  vec3(0.0f, 1.0f, 0.0f),
+  vec3(0.0f, 0.0f, 1.0f)
+);
 
 void main() {
-  Vertex vertex = _Constants.vertexBuffer.vertices[gl_VertexIndex];
+  vec2 pos = _Positions[gl_VertexIndex];
 
-  gl_Position = vec4(vertex.pos, 0.0f, 1.0f);
-  _UV = vertex.uv;
+  gl_Position = vec4(pos, 0.0, 1.0);
+  _Color = _Colors[gl_VertexIndex];
 }

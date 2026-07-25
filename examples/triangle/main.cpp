@@ -2,132 +2,68 @@
 #include "grf/swapchain.hpp"
 #include "grf/window.hpp"
 
-namespace fs = std::filesystem;
 using namespace grf;
 
-struct Vertex {
-  float x, y;
-  float u, v;
-};
-
-struct PC {
-  u64 vertBufAddr;
-  u32 texIndex;
-  u32 samplerIndex;
-};
-
 int main() {
-  const u32 _flightFrames = 2;
-
   Window window(Window::Info{
-    .width  = 1280,
+    .width = 1280,
     .height = 720,
-    .title  = "GRF Example: Triangle"
+    .title = "GRF Triangle"
   });
   Device device;
   Swapchain swapchain(device, window);
-  Queue queue = device.graphicsQueue();
 
-  Shader vertShader = device.compileGlslShader(
-    ShaderStage::Vertex, fs::path(SHADER_DIR) / "vert.glsl"
+  Shader vertShader = device.compileGlslShader(ShaderStage::Vertex,
+    std::format("{}/vert.glsl", SHADER_DIR)
   );
 
-  Shader fragShader = device.compileGlslShader(
-    ShaderStage::Fragment, fs::path(SHADER_DIR) / "frag.glsl"
+  Shader fragShader = device.compileGlslShader(ShaderStage::Fragment,
+    std::format("{}/frag.glsl", SHADER_DIR)
   );
 
   Pipeline pipeline = device.createGraphicsPipeline({ vertShader, fragShader },
     GraphicsPipelineSettings{
       .colorFormats = { swapchain.format() },
       .cullMode = CullMode::None,
-      .blends = { BlendState{
-        .enable         = true,
-        .srcColorFactor = BlendFactor::SrcAlpha,
-        .dstColorFactor = BlendFactor::OneMinusSrcAlpha
-      }}
+      .blends = { BlendState{} }
     }
   );
 
-  Buffer vertexBuffer = device.createBuffer(Buffer::Info{
-    .size   = 3 * sizeof(Vertex),
-    .intent = BufferIntent::GPUOnly
-  });
-  vertexBuffer.write(std::array<Vertex, 3>{
-    Vertex{ -0.5f, 0.5f, 0.0f, 1.0f },
-    Vertex{ 0.5f,  0.5f, 1.0f, 1.0f },
-    Vertex{ 0.0f, -0.5f, 0.5f, 0.0f }
-  });
+  const u32 _flightFrames = 2;
+  Queue queue = device.graphicsQueue();
+  Ring<CommandBuffer> cmdRing = queue.getCmdRing(_flightFrames);
+  Ring<Sync> syncRing = queue.getSyncRing(_flightFrames);
 
-  Buffer indexBuffer = device.createBuffer(Buffer::Info{
-    .size   = 3 * sizeof(u32),
-    .intent = BufferIntent::GPUOnly
-  });
-  indexBuffer.write(std::array<u32, 3>{ 0, 1, 2 });
-
-  Image testImage;
-{
-  Image::Data data = Image::getDataFromFile(std::format("{}/uv_grid.png", ASSETS_DIR));
-  testImage = device.createImage(Image::Info{
-    .width        = data.width,
-    .height       = data.height,
-    .format       = data.format,
-    .usage        = ImageUsage::Sampled,
-    .allocateMips = true
-  });
-  testImage.write(data.bytes, Layout::TransferDstOptimal);
-}
-
-  Sampler sampler = device.createSampler({});
-
-  auto cmdRing = queue.getCmdRing(_flightFrames);
-  auto syncRing = queue.getSyncRing(_flightFrames);
-
-  bool mipsGenerated = false;
-
-  while (!window.shouldClose() && !window.isJustPressed(grf::Key::Escape)) {
+  const u32 _vertexCount = 3;
+  while (!window.shouldClose() && !window.isJustPressed(Key::Escape)) {
     window.pollEvents();
 
     auto& sync = syncRing.next();
     device.wait({ sync });
 
-    Sync resourceSync = device.updateResources();
-
-    auto& cmd = cmdRing.next();
-
-    auto [scImg, imgSync] = swapchain.acquireNextImage();
-    ColorAttachment scImgAttachment{
-      .img      = scImg,
-      .loadOp   = LoadOp::Clear,
-      .storeOp  = StoreOp::Store
+    auto [img, imgSync]= swapchain.acquireNextImage();
+    ColorAttachment color{
+      .img        = img,
+      .loadOp     = LoadOp::Clear,
+      .storeOp    = StoreOp::Store,
+      .clearValue = { 0.0f, 0.0f, 0.0f, 0.0f }
     };
+
+    auto cmd = cmdRing.next();
 
     cmd.begin();
-
-    if (!mipsGenerated) [[unlikely]] {
-      cmd.generateMips(testImage, Layout::ShaderReadOptimal);
-      mipsGenerated = true;
-    }
-
-    cmd.transition(scImg, Layout::ColorAttachmentOptimal);
-    cmd.beginRendering(scImg.width(), scImg.height(), { scImgAttachment });
-
-    PC pc{
-      .vertBufAddr  = vertexBuffer.address(),
-      .texIndex     = testImage.sampledHeapIndex(),
-      .samplerIndex = sampler.heapIndex()
-    };
+    cmd.transition(img, Layout::ColorAttachmentOptimal);
+    cmd.beginRendering(img.width(), img.height(), { color });
 
     cmd.bindPipeline(pipeline);
-    cmd.bindIndexBuffer(indexBuffer);
-    cmd.pushConstants(std::as_bytes(std::span{&pc, 1}));
-    cmd.drawIndexed(3);
+    cmd.draw(_vertexCount);
 
     cmd.endRendering();
-    cmd.transition(scImg, Layout::PresentSrc);
+    cmd.transition(img, Layout::PresentSrc);
     cmd.end();
 
-    sync = queue.submit({ cmd }, { imgSync, resourceSync });
-    queue.present(scImg, { sync });
+    sync = queue.submit({ cmd }, { imgSync });
+    queue.present(img, { sync });
   }
 
   device.waitIdle();
