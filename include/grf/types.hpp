@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 namespace grf {
 
 class SwapchainImage;
@@ -24,6 +27,28 @@ using f32 = float;
 using f64 = double;
 
 using str = std::string;
+
+using vec2 = glm::vec2;
+using vec3 = glm::vec3;
+using vec4 = glm::vec4;
+
+using ivec2 = glm::ivec2;
+using ivec3 = glm::ivec3;
+using ivec4 = glm::ivec4;
+
+using uvec2 = glm::uvec2;
+using uvec3 = glm::uvec3;
+using uvec4 = glm::uvec4;
+
+using dvec2 = glm::dvec2;
+using dvec3 = glm::dvec3;
+using dvec4 = glm::dvec4;
+
+using mat2 = glm::mat2;
+using mat3 = glm::mat3;
+using mat4 = glm::mat4;
+
+using quat = glm::quat;
 
 enum class Format : i32 {
   undefined               = 0,
@@ -239,6 +264,17 @@ enum class Key : u16 {
   RightAlt      = 346,
   RightSuper    = 347,
   Menu          = 348
+};
+
+enum class MouseButton : u8 {
+  Left    = 0,
+  Right   = 1,
+  Middle  = 2,
+  Button4 = 3,
+  Button5 = 4,
+  Button6 = 5,
+  Button7 = 6,
+  Button8 = 7
 };
 
 enum class ShaderStage {

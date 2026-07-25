@@ -28,6 +28,11 @@ private:
   std::bitset<349>          m_pressed;
   std::bitset<349>          m_justPressed;
   std::bitset<349>          m_justReleased;
+  std::bitset<8>            m_mousePressed;
+  std::bitset<8>            m_mouseJustPressed;
+  std::bitset<8>            m_mouseJustReleased;
+  dvec2                     m_cursorPos = {0.0, 0.0};
+  dvec2                     m_lastCursorPos = {0.0, 0.0};
   std::set<std::uintptr_t>  m_registeredSwapchains;
 
 public:
@@ -51,6 +56,11 @@ public:
   bool isPressed(Key key) const;
   bool isJustPressed(Key key) const;
   bool isJustReleased(Key key) const;
+  bool isPressed(MouseButton button) const;
+  bool isJustPressed(MouseButton button) const;
+  bool isJustReleased(MouseButton button) const;
+  vec2 cursorPosition() const;
+  vec2 cursorDelta() const;
 };
 
 }

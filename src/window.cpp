@@ -44,6 +44,31 @@ Window::Window(const Info& info) {
     }
   });
 
+  glfwSetMouseButtonCallback(m_window, [](GLFWwindow* p_window, i32 button, i32 action, i32){
+    Window* window = (Window*)glfwGetWindowUserPointer(p_window);
+
+    switch (action) {
+    case GLFW_PRESS:
+      window->m_mousePressed[button] = true;
+      window->m_mouseJustPressed[button] = true;
+      break;
+    case GLFW_RELEASE:
+      window->m_mousePressed[button] = false;
+      window->m_mouseJustReleased[button] = true;
+      break;
+    default:
+      return;
+    }
+  });
+
+  glfwSetCursorPosCallback(m_window, [](GLFWwindow* p_window, f64 x, f64 y){
+    Window* window = (Window*)glfwGetWindowUserPointer(p_window);
+    window->m_cursorPos = {x, y};
+  });
+
+  glfwGetCursorPos(m_window, &m_cursorPos.x, &m_cursorPos.y);
+  m_lastCursorPos = m_cursorPos;
+
   glfwSetWindowSizeCallback(m_window, [](GLFWwindow* p_window, i32 width, i32 height){
     if (width == 0 || height == 0) return;
     Window* window = (Window*)glfwGetWindowUserPointer(p_window);
@@ -97,9 +122,38 @@ bool Window::isJustReleased(Key key) const {
   return m_justReleased[static_cast<u16>(key)];
 }
 
+bool Window::isPressed(MouseButton button) const {
+  return m_mousePressed[static_cast<u8>(button)];
+}
+
+bool Window::isJustPressed(MouseButton button) const {
+  return m_mouseJustPressed[static_cast<u8>(button)];
+}
+
+bool Window::isJustReleased(MouseButton button) const {
+  return m_mouseJustReleased[static_cast<u8>(button)];
+}
+
+vec2 Window::cursorPosition() const {
+  return {
+    static_cast<f32>(m_cursorPos.x) / static_cast<f32>(m_width) * 2.0f - 1.0f,
+    static_cast<f32>(m_cursorPos.y) / static_cast<f32>(m_height) * 2.0f - 1.0f
+  };
+}
+
+vec2 Window::cursorDelta() const {
+  return {
+    static_cast<f32>(m_cursorPos.x - m_lastCursorPos.x) / static_cast<f32>(m_width) * 2.0f,
+    static_cast<f32>(m_cursorPos.y - m_lastCursorPos.y) / static_cast<f32>(m_height) * 2.0f
+  };
+}
+
 void Window::pollEvents() {
   m_justPressed.reset();
   m_justReleased.reset();
+  m_mouseJustPressed.reset();
+  m_mouseJustReleased.reset();
+  m_lastCursorPos = m_cursorPos;
   glfwPollEvents();
 }
 
