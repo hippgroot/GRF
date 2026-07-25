@@ -1,0 +1,40 @@
+# Swapchain
+
+`#include "grf/swapchain.hpp"`
+
+Presentable images for a `Window`. Non-copyable and non-movable. Create after `Device` and `Window` and make sure it is destroyed before them.
+
+```cpp
+Swapchain swapchain(device, window);
+Swapchain swapchain(device, window, Swapchain::Info{
+  .format     = Format::bgra8_srgb,
+  .colorspace = ColorSpace::srgb_nonlinear,
+  .vsync      = true
+});
+```
+
+The requested format/colorspace fall back to a supported combination when unavailable. HDR colorspaces (`hdr10_st2084`, `extended_srgb_linear`, …) can be requested where the platform supports them.
+
+## Methods
+
+```cpp
+Format format() const;
+ColorSpace colorspace() const;
+bool vsync() const;
+
+std::pair<SwapchainImage, Sync> acquireNextImage(u64 timeout_ns = u64_max) const;
+```
+
+`acquireNextImage` returns the image to render into this frame plus a binary-semaphore `Sync` that must be passed as a wait to the `queue.submit` that renders to the image. The swapchain recreates itself internally when it becomes suboptimal (e.g. window resize).
+
+## SwapchainImage
+
+```cpp
+Format format() const;
+u32 width() const;
+u32 height() const;
+```
+
+`width()`/`height()` are the true pixel dimensions — use these for `beginRendering` and for sizing attachments like depth buffers (they can exceed `Window::width()/height()` on high-DPI displays).
+
+A `SwapchainImage` is transient: acquire one per frame, transition it to `ColorAttachmentOptimal`, render, transition to `PresentSrc`, then hand it to `queue.present`.
