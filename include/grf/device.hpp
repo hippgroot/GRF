@@ -45,6 +45,8 @@ public:
   const Queue& graphicsQueue() const;
   const Queue& computeQueue() const;
 
+  f32 beginFrame() const;
+
   void wait(std::span<const Sync> syncs, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
   void waitIdle() const;
   Sync updateResources() const;

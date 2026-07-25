@@ -4,7 +4,10 @@
 #include "internal/resources.hpp"
 #include "internal/pipeline.hpp"
 
+#include <chrono>
+
 namespace vkr = vk::raii;
+namespace chr = std::chrono;
 
 namespace grf {
 
@@ -31,6 +34,8 @@ class Device::Impl {
   friend class Swapchain;
 
   using PDOutput = std::tuple<QueueFamilies, u32, str>;
+  using Clock = chr::high_resolution_clock;
+  using TimePoint = Clock::time_point;
 
   vkr::Context              m_context;
   vkr::Instance             m_instance = nullptr;
@@ -46,6 +51,8 @@ class Device::Impl {
   ResourceManager           m_resourceManager;
   DescriptorHeap            m_descriptorHeap;
   ShaderManager             m_shaderManager;
+
+  TimePoint                 m_frameStart;
 
 public:
   explicit Impl(const Device::Info& info);

@@ -1,6 +1,7 @@
 #include "internal/device.hpp"
 #include "internal/log.hpp"
 #include "internal/queue.hpp"
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -16,6 +17,18 @@ const Queue& Device::graphicsQueue() const {
 
 const Queue& Device::computeQueue() const {
   return m_impl->m_computeQueue;
+}
+
+f32 Device::beginFrame() const {
+  Impl::TimePoint now = Impl::Clock::now();
+
+  f32 frameTime = 0.0f;
+  if (m_impl->m_frameStart != Impl::TimePoint{}) [[likely]]
+    frameTime = chr::duration<f32>(now - m_impl->m_frameStart).count();
+
+  m_impl->m_frameStart = now;
+
+  return frameTime;
 }
 
 void Device::wait(std::span<const Sync> syncs, u64 timeout) const {
