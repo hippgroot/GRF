@@ -22,18 +22,19 @@ public:
 private:
   static u32  m_instanceCount;
 
-  GLFWwindow*               m_window = nullptr;
-  u32                       m_width = 1280;
-  u32                       m_height = 720;
-  std::bitset<349>          m_pressed;
-  std::bitset<349>          m_justPressed;
-  std::bitset<349>          m_justReleased;
-  std::bitset<8>            m_mousePressed;
-  std::bitset<8>            m_mouseJustPressed;
-  std::bitset<8>            m_mouseJustReleased;
-  dvec2                     m_cursorPos = {0.0, 0.0};
-  dvec2                     m_lastCursorPos = {0.0, 0.0};
-  std::set<std::uintptr_t>  m_registeredSwapchains;
+  GLFWwindow*                   m_window = nullptr;
+  u32                           m_width = 1280;
+  u32                           m_height = 720;
+  std::bitset<349>              m_pressed;
+  std::bitset<349>              m_justPressed;
+  std::bitset<349>              m_justReleased;
+  std::bitset<8>                m_mousePressed;
+  std::bitset<8>                m_mouseJustPressed;
+  std::bitset<8>                m_mouseJustReleased;
+  dvec2                         m_cursorPos = {0.0, 0.0};
+  dvec2                         m_lastCursorPos = {0.0, 0.0};
+  std::set<std::uintptr_t>      m_registeredSwapchains;
+  std::function<void(u32, u32)> m_resizeCallback;
 
 public:
   explicit Window(const Info& _ = Info{
@@ -64,6 +65,8 @@ public:
 
   vec2 cursorPosition() const;
   vec2 cursorDelta() const;
+
+  void onResize(std::function<void(u32, u32)>);
 };
 
 }

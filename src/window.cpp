@@ -83,6 +83,7 @@ Window::Window(const Info& info) {
       Swapchain::Impl* swapchain = reinterpret_cast<Swapchain::Impl*>(addr);
       swapchain->recreate(width, height);
     }
+    window->m_resizeCallback(width, height);
   });
 }
 
