@@ -24,6 +24,14 @@ Device device(Device::Info{ ... });
 
 Device selection requires Vulkan 1.4, swapchain support, and the descriptor-indexing features GRF depends on; discrete GPUs are preferred. Debug builds enable validation layers when present.
 
+## Frame information
+
+```cpp
+f32 beginFrame() const;
+```
+
+Returns the time delta between frames.
+
 ## Queues and synchronization
 
 ```cpp
