@@ -81,7 +81,9 @@ target_include_directories(grf
   PUBLIC
     $<BUILD_INTERFACE:${GRF_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  PRIVATE ${CMAKE_SOURCE_DIR}/external/stb
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/external/stb
+    ${CMAKE_SOURCE_DIR}/external/glm
 )
 
 target_compile_definitions(grf PRIVATE

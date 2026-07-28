@@ -21,8 +21,10 @@ Window::Window(const Info& info) {
   m_window = glfwCreateWindow(info.width, info.height, info.title.c_str(), nullptr, nullptr);
   if (!m_window) log::error("Failed to create window (instance: {})", m_instanceCount);
 
-  m_width = info.width;
-  m_height = info.height;
+  int w, h;
+  glfwGetFramebufferSize(m_window, &w, &h);
+  m_width = w;
+  m_height = h;
 
   glfwSetWindowUserPointer(m_window, this);
 
@@ -69,21 +71,18 @@ Window::Window(const Info& info) {
   glfwGetCursorPos(m_window, &m_cursorPos.x, &m_cursorPos.y);
   m_lastCursorPos = m_cursorPos;
 
-  glfwSetWindowSizeCallback(m_window, [](GLFWwindow* p_window, i32 width, i32 height){
-    if (width == 0 || height == 0) return;
-    Window* window = (Window*)glfwGetWindowUserPointer(p_window);
-    window->m_width = width;
-    window->m_height = height;
-  });
-
   glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* p_window, i32 width, i32 height){
     if (width == 0 || height == 0) return;
+
     Window* window = (Window*)glfwGetWindowUserPointer(p_window);
     for (const std::uintptr_t& addr : window->m_registeredSwapchains) {
       Swapchain::Impl* swapchain = reinterpret_cast<Swapchain::Impl*>(addr);
       swapchain->recreate(width, height);
     }
+
     window->m_resizeCallback(width, height);
+    window->m_width = width;
+    window->m_height = height;
   });
 }
 
