@@ -66,7 +66,7 @@ public:
   vec2 cursorPosition() const;
   vec2 cursorDelta() const;
 
-  void onResize(std::function<void(u32, u32)>);
+  void onResize(std::function<void(u32, u32)> callback);
 };
 
 }

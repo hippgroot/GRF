@@ -111,6 +111,15 @@ u32 Window::height() const {
   return m_height;
 }
 
+void Window::pollEvents() {
+  m_justPressed.reset();
+  m_justReleased.reset();
+  m_mouseJustPressed.reset();
+  m_mouseJustReleased.reset();
+  m_lastCursorPos = m_cursorPos;
+  glfwPollEvents();
+}
+
 bool Window::isPressed(Key key) const {
   return m_pressed[static_cast<u16>(key)];
 }
@@ -149,13 +158,8 @@ vec2 Window::cursorDelta() const {
   };
 }
 
-void Window::pollEvents() {
-  m_justPressed.reset();
-  m_justReleased.reset();
-  m_mouseJustPressed.reset();
-  m_mouseJustReleased.reset();
-  m_lastCursorPos = m_cursorPos;
-  glfwPollEvents();
+void Window::onResize(std::function<void(u32,u32)> callback) {
+  m_resizeCallback = callback;
 }
 
 }
