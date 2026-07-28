@@ -39,6 +39,6 @@ Call `pollEvents()` once per frame. It refreshes the *pressed / just-pressed / j
 
 `cursorPosition` and `cursorDelta` are both in normalized device coordinates (x and y are between -1 and 1).
 
-`width()`/`height()` are the window's logical size. On high-DPI displays the swapchain's pixel dimensions can be larger. It is better to take render sizes from the acquired `SwapchainImage` rather than the window.
+`width()` and `height()` track the framebuffer size of the window.
 
 `onResize` is called when the framebuffer is resized. It is there for things like adjusting camera aspect ratio or recreating depth resources.

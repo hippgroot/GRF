@@ -35,6 +35,8 @@ find_package(grf REQUIRED CONFIG)
 target_link_libraries(app PRIVATE GRF::grf)
 ```
 
+Both modes provide the same single bundled library: GLFW and [Dear ImGui](https://github.com/ocornut/imgui) (docking branch, GLFW + Vulkan backends) are compiled into `libgrf.a`, and glm ships with it. Linking `grf` is all it takes to use `<glm/glm.hpp>`, `<imgui.h>`, and the ImGui backend headers. Installed headers are namespaced under `include/grf/` (`grf/glm`, `grf/imgui`) so they never collide with system-installed copies of the same libraries.
+
 ## Application skeleton
 
 Every GRF application follows the same shape. Create the core objects:
