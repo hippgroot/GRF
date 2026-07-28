@@ -10,6 +10,8 @@ A modern Vulkan 1.4 rendering framework for C++26 targeting dynamic rendering, b
 - **Dynamic Rendering** - Specify the extent, color, and depth attachments with `CommandBuffer::beginRendering()` once, rather than dealing with renderpasses and framebuffers.
 - **RAII Based** - Don't worry about missed frees or Vulkan object destruction since GRF uses Vulkan RAII and the pimpl pattern with smart pointers to manage resource lifetimes.
 - **Windowing** - GRF uses GLFW to create windows, handle input, and manage swapchain reconstruction internally, removing the need for a large collection of window callbacks.
+- **Dear ImGui Included** - GRF bundles [Dear ImGui](https://github.com/ocornut/imgui) (docking branch) with the GLFW and Vulkan backends compiled in. Linking GRF is enough to `#include <imgui.h>` and build tooling UIs — no separate ImGui setup.
+- **Single Bundle** - GRF builds and installs as one static library. GLFW, Dear ImGui, and glm are compiled in (or header-shipped) with it; consumers link one target and headers install namespaced under `include/grf/` so nothing collides with system-installed copies.
 
 ## Requirements
 
@@ -30,15 +32,29 @@ Examples are built by default; disable them with `-DGRF_BUILD_EXAMPLES=OFF`.
 
 Validation layers are enabled automatically on debug builds. Set the CMake build type with `-DCMAKE_BUILD_TYPE=<Release/Debug>` accordingly.
 
-### Installing
+### Using GRF
+
+GRF supports two consumption modes; both give you the same single bundled library with GLFW, Dear ImGui, and glm included.
+
+As a subdirectory (recommended for larger projects using GRF as their base rendering API):
+
+```cmake
+add_subdirectory(grf)
+target_link_libraries(app PRIVATE grf)
+```
+
+Or as a locally installed package:
 
 ```sh
 cmake --build build --target install
 ```
 
-Consume the installed package with `find_package(grf CONFIG)` and link `GRF::grf`.
+```cmake
+find_package(grf REQUIRED CONFIG)
+target_link_libraries(app PRIVATE GRF::grf)
+```
 
-Use `cmake --build build --target uninstall` to uninstall.
+Installation ships a single `libgrf.a` plus headers under `include/grf/` (GRF's own headers with glm at `grf/glm` and ImGui at `grf/imgui`) — no separate GLFW/ImGui/glm libraries or CMake packages are installed. Use `cmake --build build --target uninstall` to uninstall.
 
 ## Examples
 
@@ -54,4 +70,12 @@ Use `cmake --build build --target uninstall` to uninstall.
 
 ## License
 
-GRF is licensed under the [MIT License](LICENSE). Bundled third-party dependencies keep their own licenses: [GLFW](https://github.com/glfw/glfw) (zlib), [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) (MIT), and [stb](https://github.com/nothings/stb) (MIT / public domain).
+GRF is licensed under the [MIT License](LICENSE). Bundled third-party dependencies keep their own licenses:
+
+| Dependency | License | Bundled as |
+| --- | --- | --- |
+| [GLFW](https://github.com/glfw/glfw) | zlib/libpng | compiled into `libgrf.a` |
+| [Dear ImGui](https://github.com/ocornut/imgui) | MIT | compiled into `libgrf.a`, headers in `include/grf/imgui` |
+| [glm](https://github.com/g-truc/glm) | MIT | headers in `include/grf/glm` |
+| [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) | MIT | compiled into `libgrf.a` |
+| [stb](https://github.com/nothings/stb) | MIT / public domain | compiled into `libgrf.a` |
