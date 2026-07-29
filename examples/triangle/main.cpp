@@ -1,4 +1,6 @@
 #include "grf/device.hpp"
+#include "grf/gui.hpp"
+#include "grf/imgui.h"
 #include "grf/swapchain.hpp"
 #include "grf/window.hpp"
 
@@ -12,6 +14,10 @@ int main() {
   });
   Device device;
   Swapchain swapchain(device, window);
+
+  GUI gui(device, swapchain);
+  auto& io = ImGui::GetIO();
+  io.IniFilename = nullptr;
 
   Shader vertShader = device.compileGlslShader(ShaderStage::Vertex,
     std::format("{}/vert.glsl", SHADER_DIR)
@@ -35,30 +41,44 @@ int main() {
   Ring<Sync> syncRing = queue.getSyncRing(_flightFrames);
 
   const u32 _vertexCount = 3;
+  bool showDemoWindow = true;
   while (!window.shouldClose() && !window.isJustPressed(Key::Escape)) {
     window.pollEvents();
 
     auto& sync = syncRing.next();
     device.wait({ sync });
+    auto& cmd = cmdRing.next();
 
     auto [img, imgSync]= swapchain.acquireNextImage();
-    ColorAttachment color{
-      .img        = img,
-      .loadOp     = LoadOp::Clear,
-      .storeOp    = StoreOp::Store,
-      .clearValue = { 0.0f, 0.0f, 0.0f, 0.0f }
-    };
-
-    auto cmd = cmdRing.next();
 
     cmd.begin();
     cmd.transition(img, Layout::ColorAttachmentOptimal);
-    cmd.beginRendering(img.width(), img.height(), { color });
+    cmd.beginRendering(img.width(), img.height(), { ColorAttachment{
+      .img        = img,
+      .loadOp     = LoadOp::Clear,
+      .storeOp    = StoreOp::Store
+    }});
 
     cmd.bindPipeline(pipeline);
     cmd.draw(_vertexCount);
 
     cmd.endRendering();
+    cmd.beginRendering(img.width(), img.height(), { ColorAttachment{
+      .img = img,
+      .loadOp = LoadOp::Load,
+      .storeOp = StoreOp::Store,
+    }});
+
+    gui.newFrame();
+    ImGui::Begin("Test Window");
+      ImGui::TextUnformatted("Groot");
+      ImGui::TextUnformatted("Rendering");
+      ImGui::TextUnformatted("Framework");
+    ImGui::End();
+    gui.render(cmd);
+
+    cmd.endRendering();
+
     cmd.transition(img, Layout::PresentSrc);
     cmd.end();
 
