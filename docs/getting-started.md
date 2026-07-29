@@ -35,7 +35,7 @@ find_package(grf REQUIRED CONFIG)
 target_link_libraries(app PRIVATE GRF::grf)
 ```
 
-Both modes provide the same single bundled library: GLFW and [Dear ImGui](https://github.com/ocornut/imgui) (docking branch, GLFW + Vulkan backends) are compiled into `libgrf.a`, and glm ships with it. Linking `grf` is all it takes to use `<glm/glm.hpp>`, `<imgui.h>`, and the ImGui backend headers. Installed headers are namespaced under `include/grf/` (`grf/glm`, `grf/imgui`) so they never collide with system-installed copies of the same libraries.
+Both modes provide the same single bundled library: GLFW and [Dear ImGui](https://github.com/ocornut/imgui) (docking branch, GLFW + Vulkan backends) are compiled into `libgrf.a`, and glm ships with it. Linking `grf` is all it takes to use `<glm/glm.hpp>` and `<grf/imgui.h>`. Installed headers are namespaced under `include/grf/` (glm at `grf/glm`, ImGui's `imgui.h` and `imconfig.h` directly in `grf/`) so they never collide with system-installed copies of the same libraries.
 
 ## Application skeleton
 
@@ -158,3 +158,32 @@ layout(binding = 2) uniform sampler _Samplers[];
 ```
 
 See [Core concepts](concepts.md) for the contracts behind each step.
+
+## Dear ImGui
+
+GRF ships with Dear ImGui's docking branch. Use it with the `gui.hpp`, `imgui.h`, and `imconfig.h` headers.
+The `GUI` object controls all ImGui operations for a swapchain between its `newFrame()` and `render()` methods.
+
+```cpp
+#include <grf/gui.hpp>
+#include <grf/imgui.h>
+#include <grf/imconfig.h>
+
+// AFTER SWAPCHAIN CREATION
+GUI gui(device, swapchain);
+
+// IN MAIN LOOP
+gui.newFrame();
+// ImGui calls
+gui.render(cmd);
+```
+
+Docking is a runtime opt-in after the `GUI` is constructed:
+
+```cpp
+ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+```
+
+`ImGuiConfigFlags_ViewportsEnable` is incompatible with GRF since GRF owns all swapchains/windows/etc.
+
+All other configs/styles are set by you after the GUI object is constructed. It is up to you to determine how you want to engineer window styling.
