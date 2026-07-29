@@ -36,6 +36,7 @@ private:
 };
 
 class Swapchain {
+  friend class GUI;
   friend class Window;
 
 public:

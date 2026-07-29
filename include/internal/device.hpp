@@ -31,6 +31,7 @@ public:
 
 class Device::Impl {
   friend class Device;
+  friend class GUI;
   friend class Swapchain;
 
   using PDOutput = std::tuple<QueueFamilies, u32, str>;

@@ -47,6 +47,7 @@ private:
 };
 
 class CommandBuffer {
+  friend class GUI;
   friend class Queue;
 
   class Impl;
@@ -87,6 +88,7 @@ public:
 
 class Queue {
   friend class Device;
+  friend class GUI;
 
   class Impl;
   std::shared_ptr<Impl> m_impl;

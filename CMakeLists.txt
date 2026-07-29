@@ -51,6 +51,7 @@ target_include_directories(stb SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/exte
 
 add_library(grf
   ${GRF_INCLUDE_DIR}/grf/device.hpp
+  ${GRF_INCLUDE_DIR}/grf/gui.hpp
   ${GRF_INCLUDE_DIR}/grf/pipeline.hpp
   ${GRF_INCLUDE_DIR}/grf/queue.hpp
   ${GRF_INCLUDE_DIR}/grf/resources.hpp
@@ -59,6 +60,7 @@ add_library(grf
   ${GRF_INCLUDE_DIR}/grf/window.hpp
 
   ${GRF_INCLUDE_DIR}/internal/device.hpp
+  ${GRF_INCLUDE_DIR}/internal/gui.hpp
   ${GRF_INCLUDE_DIR}/internal/log.hpp
   ${GRF_INCLUDE_DIR}/internal/pipeline.hpp
   ${GRF_INCLUDE_DIR}/internal/queue.hpp
@@ -67,6 +69,7 @@ add_library(grf
 
   ${GRF_SOURCE_DIR}/device.cpp
   ${GRF_SOURCE_DIR}/device_impl.cpp
+  ${GRF_SOURCE_DIR}/gui.cpp
   ${GRF_SOURCE_DIR}/pipeline.cpp
   ${GRF_SOURCE_DIR}/queue.cpp
   ${GRF_SOURCE_DIR}/resources.cpp
@@ -77,7 +80,6 @@ add_library(grf
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_draw.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_tables.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_widgets.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_demo.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_glfw.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_vulkan.cpp
 )
@@ -87,14 +89,25 @@ set_source_files_properties(
   PROPERTIES COMPILE_FLAGS "-Wno-nullability-completeness"
 )
 
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui.h
+  ${CMAKE_CURRENT_BINARY_DIR}/include/grf/imgui.h
+  COPYONLY
+)
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imconfig.h
+  ${CMAKE_CURRENT_BINARY_DIR}/include/grf/imconfig.h
+  COPYONLY
+)
+
 target_include_directories(grf
   PUBLIC
     $<BUILD_INTERFACE:${GRF_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/imgui>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/grf/imgui>
   PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends
     ${CMAKE_CURRENT_SOURCE_DIR}/external/stb
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glm
 )
@@ -177,13 +190,7 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/glm/glm
 install(FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui.h
   ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imconfig.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_internal.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imstb_rectpack.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imstb_textedit.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imstb_truetype.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_glfw.h
-  ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_vulkan.h
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/grf/imgui
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/grf
 )
 
 install(EXPORT grf-targets

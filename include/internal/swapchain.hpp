@@ -58,6 +58,7 @@ public:
 };
 
 class Swapchain::Impl {
+  friend class GUI;
   friend class Swapchain;
 
   const vkr::PhysicalDevice&  m_physicalDevice;

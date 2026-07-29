@@ -10,6 +10,7 @@ class GLFWwindow;
 namespace grf {
 
 class Window {
+  friend class GUI;
   friend class Swapchain;
 
 public:

@@ -59,6 +59,7 @@ public:
 };
 
 class Queue::Impl {
+  friend class GUI;
   friend class Queue;
 
   const vkr::Device&   m_device;
