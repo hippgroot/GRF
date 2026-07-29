@@ -54,7 +54,7 @@ find_package(grf REQUIRED CONFIG)
 target_link_libraries(app PRIVATE GRF::grf)
 ```
 
-Installation ships a single `libgrf.a` plus headers under `include/grf/` (GRF's own headers with glm at `grf/glm` and ImGui at `grf/imgui`) — no separate GLFW/ImGui/glm libraries or CMake packages are installed. Use `cmake --build build --target uninstall` to uninstall.
+Installation ships a single `libgrf.a` plus headers under `include/grf/` (GRF's own headers with glm at `grf/glm` and ImGui's `imgui.h`/`imconfig.h` alongside them) — no separate GLFW/ImGui/glm libraries or CMake packages are installed. Use `cmake --build build --target uninstall` to uninstall.
 
 ## Examples
 
@@ -75,7 +75,7 @@ GRF is licensed under the [MIT License](LICENSE). Bundled third-party dependenci
 | Dependency | License | Bundled as |
 | --- | --- | --- |
 | [GLFW](https://github.com/glfw/glfw) | zlib/libpng | compiled into `libgrf.a` |
-| [Dear ImGui](https://github.com/ocornut/imgui) | MIT | compiled into `libgrf.a`, headers in `include/grf/imgui` |
+| [Dear ImGui](https://github.com/ocornut/imgui) | MIT | compiled into `libgrf.a`, headers in `include/grf` |
 | [glm](https://github.com/g-truc/glm) | MIT | headers in `include/grf/glm` |
 | [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) | MIT | compiled into `libgrf.a` |
 | [stb](https://github.com/nothings/stb) | MIT / public domain | compiled into `libgrf.a` |
