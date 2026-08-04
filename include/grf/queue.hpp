@@ -48,6 +48,7 @@ private:
 
 class CommandBuffer {
   friend class GUI;
+  friend class Profiler;
   friend class Queue;
 
   class Impl;

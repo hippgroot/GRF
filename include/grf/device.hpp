@@ -12,6 +12,7 @@ namespace grf {
 
 class Device {
   friend class GUI;
+  friend class Profiler;
   friend class Swapchain;
 
 public:

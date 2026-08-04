@@ -1,9 +1,8 @@
 #include "grf/window.hpp"
-#include "imgui.h"
-#include "imgui_impl_vulkan.h"
 #include "internal/device.hpp"
 #include "internal/gui.hpp"
 #include "internal/swapchain.hpp"
+#include "internal/log.hpp"
 
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -81,6 +80,205 @@ GUI::Impl::~Impl() {
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext(m_context);
+}
+
+Profiler::Profiler(const Device& device, const Profiler::Info& info) {
+  auto props = device.m_impl->m_physicalDevice.getProperties();
+  m_impl = std::make_unique<Impl>(device.m_impl->m_device, props.limits.timestampPeriod, info);
+}
+
+Profiler::~Profiler() {}
+
+void Profiler::logFrameTime(f32 frameTime) const {
+  m_impl->m_tracker.addTime(frameTime);
+  m_impl->m_averages.addFrame(frameTime);
+}
+
+void Profiler::beginFrame(CommandBuffer cmd) const {
+  m_impl->m_scopeIndex = (m_impl->m_scopeIndex + 1) % m_impl->m_flightFrames;
+  u32 base = 2 * m_impl->m_scopeIndex * m_impl->m_maxGpuSamples;
+
+  auto& scope = m_impl->m_scopes[m_impl->m_scopeIndex];
+  scope.recordResults(m_impl->m_queryPool, base, m_impl->m_timestampPeriod_ns);
+  m_impl->m_averages.addScopeTimes(scope.results());
+  scope.reset();
+
+  cmd.m_impl->commandBuffer().resetQueryPool(m_impl->m_queryPool, base, 2 * m_impl->m_maxGpuSamples);
+}
+
+void Profiler::beginScope(CommandBuffer cmd, const str& name) const {
+  u32 slot = m_impl->m_scopes[m_impl->m_scopeIndex].begin(name);
+  if (slot >= m_impl->m_maxGpuSamples)
+    log::error("Profiler exceeded maxGpuSamples ({})", m_impl->m_maxGpuSamples);
+
+  u32 base = 2 * m_impl->m_scopeIndex * m_impl->m_maxGpuSamples;
+  cmd.m_impl->commandBuffer().writeTimestamp(
+    vk::PipelineStageFlagBits::eTopOfPipe, m_impl->m_queryPool, base + 2 * slot
+  );
+}
+
+void Profiler::endScope(CommandBuffer cmd) const {
+  u32 slot = m_impl->m_scopes[m_impl->m_scopeIndex].end();
+
+  u32 base = 2 * m_impl->m_scopeIndex * m_impl->m_maxGpuSamples;
+  cmd.m_impl->commandBuffer().writeTimestamp(
+    vk::PipelineStageFlagBits::eBottomOfPipe, m_impl->m_queryPool, base + 2 * slot + 1
+  );
+}
+
+void Profiler::draw() const {
+  const auto& tracker = m_impl->m_tracker;
+  const auto& averages = m_impl->m_averages;
+
+  ImGui::Begin("Profiler");
+  ImGui::Text("Frame: %.2f ms (%.0f fps)", averages.frameTime_ms(), averages.fps());
+  ImGui::PlotLines("##frametimes",
+    tracker.times().data(), static_cast<int>(tracker.times().size()), static_cast<int>(tracker.offset()),
+    nullptr, 0.0f, FLT_MAX, ImVec2(-1.0f, 40.0f)
+  );
+
+  const auto& scopes = averages.scopeTimes();
+  if (!scopes.empty()) {
+    ImGui::SeparatorText("GPU");
+    for (const auto& [name, time_ms] : scopes)
+      ImGui::Text("%s: %.3f ms", name.c_str(), time_ms);
+  }
+  ImGui::End();
+}
+
+const std::vector<std::pair<str, f32>>& ScopeList::results() const {
+  return m_results;
+}
+
+u32 ScopeList::begin(const str& name) {
+  u32 index = static_cast<u32>(m_names.size());
+  m_names.push_back(name);
+  m_open.push_back(index);
+  return index;
+}
+
+u32 ScopeList::end() {
+  if (m_open.empty())
+    log::error("Profiler endScope called with no open scope");
+
+  u32 index = m_open.back();
+  m_open.pop_back();
+  return index;
+}
+
+void ScopeList::recordResults(const vkr::QueryPool& queryPool, u32 baseIndex, f32 timestampPeriod_ns) {
+  if (!m_open.empty())
+    log::error("Profiler scope '{}' was never ended", m_names[m_open.back()]);
+
+  m_results.clear();
+  if (m_names.empty()) return;
+
+  u32 count = static_cast<u32>(m_names.size());
+  auto [result, timestamps] = queryPool.getResults<u64>(
+    baseIndex, 2 * count, 2 * count * sizeof(u64), sizeof(u64),
+    vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait
+  );
+
+  if (result != vk::Result::eSuccess) {
+    log::warning("Profiler failed to read timestamp queries");
+    return;
+  }
+
+  m_results.reserve(count);
+  for (u32 i = 0; i < count; i++) {
+    f32 time_ms = static_cast<f32>(timestamps[2 * i + 1] - timestamps[2 * i]) * timestampPeriod_ns / 1'000'000.0f;
+    m_results.emplace_back(m_names[i], time_ms);
+  }
+}
+
+void ScopeList::reset() {
+  m_names.clear();
+  m_open.clear();
+}
+
+FrametimeTracker::FrametimeTracker(u32 maxSamples)
+: m_maxSamples(maxSamples) {
+  m_frameTimes.resize(m_maxSamples);
+}
+
+void FrametimeTracker::addTime(f32 time) {
+  m_frameTimes[m_nextIndex++] = time;
+  if (m_nextIndex == m_maxSamples)
+    m_nextIndex = 0;
+}
+
+const std::vector<f32>& FrametimeTracker::times() const {
+  return m_frameTimes;
+}
+
+u32 FrametimeTracker::offset() const {
+  return m_nextIndex;
+}
+
+AverageDisplay::AverageDisplay(f32 interval_s)
+: m_interval_s(interval_s) {}
+
+f32 AverageDisplay::frameTime_ms() const {
+  return m_frameTime_ms;
+}
+
+f32 AverageDisplay::fps() const {
+  return m_fps;
+}
+
+const std::vector<std::pair<str, f32>>& AverageDisplay::scopeTimes() const {
+  return m_scopeTimes;
+}
+
+void AverageDisplay::addFrame(f32 dt) {
+  m_elapsed_s += dt;
+  m_frameCount++;
+
+  if (m_elapsed_s < m_interval_s) return;
+
+  m_frameTime_ms = m_elapsed_s / m_frameCount * 1000.0f;
+  m_fps = m_frameCount / m_elapsed_s;
+
+  m_scopeTimes.clear();
+  m_scopeTimes.reserve(m_scopeSums.size());
+  for (u32 i = 0; i < m_scopeSums.size(); i++)
+    m_scopeTimes.emplace_back(m_scopeSums[i].first, m_scopeSums[i].second / m_scopeCounts[i]);
+
+  m_elapsed_s = 0.0f;
+  m_frameCount = 0u;
+  m_scopeSums.clear();
+  m_scopeCounts.clear();
+}
+
+void AverageDisplay::addScopeTimes(const std::vector<std::pair<str, f32>>& results) {
+  for (const auto& [name, time_ms] : results) {
+    u32 i = 0;
+    while (i < m_scopeSums.size() && m_scopeSums[i].first != name)
+      i++;
+
+    if (i == m_scopeSums.size()) {
+      m_scopeSums.emplace_back(name, time_ms);
+      m_scopeCounts.push_back(1u);
+    } else {
+      m_scopeSums[i].second += time_ms;
+      m_scopeCounts[i]++;
+    }
+  }
+}
+
+Profiler::Impl::Impl(const vkr::Device& device, f32 timestampPeriod_ns, const Profiler::Info& info)
+: m_maxGpuSamples(info.maxGpuSamples),
+  m_flightFrames(info.flightFrames),
+  m_timestampPeriod_ns(timestampPeriod_ns),
+  m_tracker(FrametimeTracker(info.maxSamples)),
+  m_averages(AverageDisplay(1.0f))
+{
+  m_queryPool = device.createQueryPool(vk::QueryPoolCreateInfo{
+    .queryType = vk::QueryType::eTimestamp,
+    .queryCount = 2 * info.maxGpuSamples * info.flightFrames
+  });
+
+  m_scopes.resize(m_flightFrames);
 }
 
 }
