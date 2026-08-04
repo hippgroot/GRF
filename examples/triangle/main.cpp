@@ -19,6 +19,8 @@ int main() {
   auto& io = ImGui::GetIO();
   io.IniFilename = nullptr;
 
+  Profiler profiler(device);
+
   Shader vertShader = device.compileGlslShader(ShaderStage::Vertex,
     std::format("{}/vert.glsl", SHADER_DIR)
   );
@@ -47,12 +49,18 @@ int main() {
 
     auto& sync = syncRing.next();
     device.wait({ sync });
-    auto& cmd = cmdRing.next();
 
+    f32 dt = device.beginFrame();
+    profiler.logFrameTime(dt);
+
+    auto& cmd = cmdRing.next();
     auto [img, imgSync]= swapchain.acquireNextImage();
 
     cmd.begin();
+    profiler.beginFrame(cmd);
+
     cmd.transition(img, Layout::ColorAttachmentOptimal);
+
     cmd.beginRendering(img.width(), img.height(), { ColorAttachment{
       .img        = img,
       .loadOp     = LoadOp::Clear,
@@ -60,7 +68,10 @@ int main() {
     }});
 
     cmd.bindPipeline(pipeline);
+
+    profiler.beginScope(cmd, "draw");
     cmd.draw(_vertexCount);
+    profiler.endScope(cmd);
 
     cmd.endRendering();
     cmd.beginRendering(img.width(), img.height(), { ColorAttachment{
@@ -70,12 +81,18 @@ int main() {
     }});
 
     gui.newFrame();
+
     ImGui::Begin("Test Window");
       ImGui::TextUnformatted("Groot");
       ImGui::TextUnformatted("Rendering");
       ImGui::TextUnformatted("Framework");
     ImGui::End();
+
+    profiler.draw();
+
+    profiler.beginScope(cmd, "gui");
     gui.render(cmd);
+    profiler.endScope(cmd);
 
     cmd.endRendering();
 
