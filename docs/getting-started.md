@@ -187,3 +187,29 @@ ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 `ImGuiConfigFlags_ViewportsEnable` is incompatible with GRF since GRF owns all swapchains/windows/etc.
 
 All other configs/styles are set by you after the GUI object is constructed. It is up to you to determine how you want to engineer window styling.
+
+## Profiling
+
+`Profiler` draws a frame time and GPU timing overlay through the `GUI` object:
+
+```cpp
+// AFTER DEVICE CREATION
+Profiler profiler(device);
+
+// IN MAIN LOOP
+f32 dt = device.beginFrame(); // get frame time
+profiler.logFrameTime(dt); // pass frame time to profiler
+
+cmd.begin();
+profiler.beginFrame(cmd); // must be called after cmd.begin()
+
+profiler.beginScope(cmd, "Scene");
+// command buffer calls
+profiler.endScope(cmd);
+
+gui.newFrame();
+profiler.draw();
+gui.render(cmd);
+```
+
+Displayed values are averages that refresh once per second. See [GUI](api/gui.md#profiler) for the contracts around `beginFrame` and scopes.
