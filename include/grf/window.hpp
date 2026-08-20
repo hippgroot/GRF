@@ -35,7 +35,7 @@ private:
   dvec2                         m_cursorPos = {0.0, 0.0};
   dvec2                         m_lastCursorPos = {0.0, 0.0};
   std::set<std::uintptr_t>      m_registeredSwapchains;
-  std::function<void(u32, u32)> m_resizeCallback;
+  std::function<void(u32, u32)> m_resizeCallback = [](u32, u32){};
 
 public:
   explicit Window(const Info& _ = Info{
