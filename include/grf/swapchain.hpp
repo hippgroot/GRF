@@ -66,6 +66,9 @@ public:
   Format format() const;
   ColorSpace colorspace() const;
   bool vsync() const;
+  bool vsyncOnly() const;
+  void enableVsync();
+  void disableVsync();
   std::pair<SwapchainImage, Sync> acquireNextImage(u64 timeout_ns = std::numeric_limits<u64>::max()) const;
 };
 

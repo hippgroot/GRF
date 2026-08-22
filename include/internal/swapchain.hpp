@@ -4,6 +4,7 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
+#include <atomic>
 #include <functional>
 
 namespace vkr = vk::raii;
@@ -70,11 +71,13 @@ class Swapchain::Impl {
   std::vector<SwapchainImage> m_images;
   std::vector<vkr::Semaphore> m_semaphores;
   vk::SurfaceFormatKHR        m_surfaceFormat;
-  vk::PresentModeKHR          m_presentMode;
   vk::Extent2D                m_extent;
   u32                         m_minImageCount = 1;
   u32                         m_semaphoreIndex = 0;
-  bool                        m_dirty = false;
+  bool                        m_mailboxSupported = false;
+
+  std::atomic<vk::PresentModeKHR> m_presentMode { vk::PresentModeKHR::eFifo };
+  std::atomic<bool>               m_dirty = false;
 
 public:
   Impl(const Device& device, Window& window, const Swapchain::Info& info);

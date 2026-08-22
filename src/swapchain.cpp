@@ -93,6 +93,30 @@ bool Swapchain::vsync() const {
   return m_impl->m_presentMode == vk::PresentModeKHR::eFifo;
 }
 
+bool Swapchain::vsyncOnly() const {
+  return !m_impl->m_mailboxSupported;
+}
+
+void Swapchain::enableVsync() {
+  if (m_impl->m_presentMode == vk::PresentModeKHR::eFifo)
+    return;
+
+  m_impl->m_presentMode = vk::PresentModeKHR::eFifo;
+  m_impl->m_dirty = true;
+}
+
+void Swapchain::disableVsync() {
+  if (!m_impl->m_mailboxSupported) {
+    log::warning("Uncapped presentation is unsupported. Using VSync");
+    return;
+  }
+  if (m_impl->m_presentMode == vk::PresentModeKHR::eMailbox)
+    return;
+
+  m_impl->m_presentMode = vk::PresentModeKHR::eMailbox;
+  m_impl->m_dirty = true;
+}
+
 std::pair<SwapchainImage, Sync> Swapchain::acquireNextImage(u64 timeout) const {
   if (m_impl->m_dirty) {
     i32 width, height;
@@ -183,12 +207,16 @@ vk::SurfaceCapabilitiesKHR Swapchain::Impl::processInfo(const Swapchain::Info& i
     log::warning("Desired format and colorspace unsupported. Using defaults.");
 
   auto capabilities = m_physicalDevice.getSurfaceCapabilitiesKHR(*m_surface);
+
+  for (const auto& mode : m_physicalDevice.getSurfacePresentModesKHR(*m_surface)) {
+    if (mode == vk::PresentModeKHR::eMailbox) m_mailboxSupported = true;
+  }
+
   m_presentMode = vk::PresentModeKHR::eFifo;
   if (!info.vsync) {
-    for (const auto& mode : m_physicalDevice.getSurfacePresentModesKHR(*m_surface)) {
-      if (mode == vk::PresentModeKHR::eMailbox) m_presentMode = mode;
-    }
-    if (m_presentMode != vk::PresentModeKHR::eMailbox)
+    if (m_mailboxSupported)
+      m_presentMode = vk::PresentModeKHR::eMailbox;
+    else
       log::warning("Uncapped presentation is unsupported. Using VSync");
   }
 
