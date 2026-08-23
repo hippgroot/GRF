@@ -5,7 +5,7 @@
 #include <bitset>
 #include <set>
 
-class GLFWwindow;
+struct GLFWwindow;
 
 namespace grf {
 

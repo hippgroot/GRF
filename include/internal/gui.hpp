@@ -6,7 +6,7 @@
 
 namespace vkr = vk::raii;
 
-class GLFWwindow;
+struct GLFWwindow;
 struct ImGuiContext;
 
 namespace grf {

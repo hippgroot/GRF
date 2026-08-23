@@ -132,6 +132,7 @@ target_link_libraries(grf
     $<BUILD_INTERFACE:GPUOpen::VulkanMemoryAllocator>
 )
 
+find_package(Threads REQUIRED)
 get_target_property(GLFW_LINK_DEPS glfw INTERFACE_LINK_LIBRARIES)
 target_link_libraries(grf INTERFACE ${GLFW_LINK_DEPS})
 
@@ -139,6 +140,13 @@ if(APPLE)
   add_custom_command(TARGET grf POST_BUILD
     COMMAND libtool -static -no_warning_for_no_symbols
       -o $<TARGET_FILE:grf>.merged $<TARGET_FILE:grf> $<TARGET_FILE:glfw>
+    COMMAND ${CMAKE_COMMAND} -E rename $<TARGET_FILE:grf>.merged $<TARGET_FILE:grf>
+    VERBATIM
+  )
+elseif(MSVC)
+  add_custom_command(TARGET grf POST_BUILD
+    COMMAND ${CMAKE_AR} /OUT:$<TARGET_FILE:grf>.merged
+      $<TARGET_FILE:grf> $<TARGET_FILE:glfw>
     COMMAND ${CMAKE_COMMAND} -E rename $<TARGET_FILE:grf>.merged $<TARGET_FILE:grf>
     VERBATIM
   )
@@ -151,7 +159,10 @@ save
 end
 ")
   add_custom_command(TARGET grf POST_BUILD
-    COMMAND sh -c "'${CMAKE_AR}' -M < '${CMAKE_CURRENT_BINARY_DIR}/grf-merge.mri'"
+    COMMAND ${CMAKE_COMMAND}
+      -DAR=${CMAKE_AR}
+      -DMRI=${CMAKE_CURRENT_BINARY_DIR}/grf-merge.mri
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/merge-archives.cmake
     COMMAND ${CMAKE_COMMAND} -E rename $<TARGET_FILE:grf>.merged $<TARGET_FILE:grf>
     VERBATIM
   )

@@ -3,6 +3,8 @@
 #include "./resources.hpp"
 #include "./swapchain.hpp"
 
+#include <array>
+#include <initializer_list>
 #include <memory>
 #include <span>
 #include <variant>
@@ -66,6 +68,9 @@ public:
   void begin() const;
   void end() const;
   void beginRendering(u32 width, u32 height, std::span<const ColorAttachment> colors, std::optional<DepthAttachment> depth = std::nullopt) const;
+  void beginRendering(u32 width, u32 height, std::initializer_list<ColorAttachment> colors, std::optional<DepthAttachment> depth = std::nullopt) const {
+    beginRendering(width, height, std::span<const ColorAttachment>(colors.begin(), colors.size()), depth);
+  }
   void endRendering() const;
 
   void bindIndexBuffer(Buffer buffer, IndexType type = IndexType::u32) const;
@@ -106,7 +111,13 @@ public:
   Ring<CommandBuffer> getCmdRing(u32) const;
   Ring<Sync> getSyncRing(u32) const;
   Sync submit(std::span<const CommandBuffer>, std::span<const Sync> waits = {}) const;
+  Sync submit(std::initializer_list<CommandBuffer> cmds, std::initializer_list<Sync> waits = {}) const {
+    return submit(std::span<const CommandBuffer>(cmds.begin(), cmds.size()), std::span<const Sync>(waits.begin(), waits.size()));
+  }
   void present(const SwapchainImage&, std::span<const Sync> waits) const;
+  void present(const SwapchainImage& img, std::initializer_list<Sync> waits) const {
+    present(img, std::span<const Sync>(waits.begin(), waits.size()));
+  }
 };
 
 extern template class Ring<CommandBuffer>;

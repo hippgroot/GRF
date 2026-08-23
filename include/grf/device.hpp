@@ -5,6 +5,7 @@
 #include "./resources.hpp"
 
 #include <filesystem>
+#include <initializer_list>
 #include <limits>
 #include <span>
 
@@ -50,6 +51,9 @@ public:
   f32 beginFrame() const;
 
   void wait(std::span<const Sync> syncs, u64 timeout_ns = std::numeric_limits<u64>::max()) const;
+  void wait(std::initializer_list<Sync> syncs, u64 timeout_ns = std::numeric_limits<u64>::max()) const {
+    wait(std::span<const Sync>(syncs.begin(), syncs.size()), timeout_ns);
+  }
   void waitIdle() const;
   Sync updateResources() const;
 

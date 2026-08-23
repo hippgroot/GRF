@@ -9,7 +9,7 @@
 
 namespace vkr = vk::raii;
 
-class GLFWwindow;
+struct GLFWwindow;
 
 namespace grf {
 
