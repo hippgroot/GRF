@@ -94,7 +94,7 @@ bool Swapchain::vsync() const {
 }
 
 bool Swapchain::vsyncOnly() const {
-  return !m_impl->m_mailboxSupported;
+  return !m_impl->m_mailboxSupported && !m_impl->m_immediateSupported;
 }
 
 void Swapchain::enableVsync() {
@@ -106,14 +106,19 @@ void Swapchain::enableVsync() {
 }
 
 void Swapchain::disableVsync() {
-  if (!m_impl->m_mailboxSupported) {
+  if (!m_impl->m_mailboxSupported && !m_impl->m_immediateSupported) {
     log::warning("Uncapped presentation is unsupported. Using VSync");
     return;
   }
-  if (m_impl->m_presentMode == vk::PresentModeKHR::eMailbox)
+
+  vk::PresentModeKHR uncappedMode = m_impl->m_mailboxSupported
+    ? vk::PresentModeKHR::eMailbox
+    : vk::PresentModeKHR::eImmediate;
+
+  if (m_impl->m_presentMode == uncappedMode)
     return;
 
-  m_impl->m_presentMode = vk::PresentModeKHR::eMailbox;
+  m_impl->m_presentMode = uncappedMode;
   m_impl->m_dirty = true;
 }
 
@@ -210,12 +215,15 @@ vk::SurfaceCapabilitiesKHR Swapchain::Impl::processInfo(const Swapchain::Info& i
 
   for (const auto& mode : m_physicalDevice.getSurfacePresentModesKHR(*m_surface)) {
     if (mode == vk::PresentModeKHR::eMailbox) m_mailboxSupported = true;
+    if (mode == vk::PresentModeKHR::eImmediate) m_immediateSupported = true;
   }
 
   m_presentMode = vk::PresentModeKHR::eFifo;
   if (!info.vsync) {
     if (m_mailboxSupported)
       m_presentMode = vk::PresentModeKHR::eMailbox;
+    else if (m_immediateSupported)
+      m_presentMode = vk::PresentModeKHR::eImmediate;
     else
       log::warning("Uncapped presentation is unsupported. Using VSync");
   }

@@ -75,6 +75,7 @@ class Swapchain::Impl {
   u32                         m_minImageCount = 1;
   u32                         m_semaphoreIndex = 0;
   bool                        m_mailboxSupported = false;
+  bool                        m_immediateSupported = false;
 
   std::atomic<vk::PresentModeKHR> m_presentMode { vk::PresentModeKHR::eFifo };
   std::atomic<bool>               m_dirty = false;
