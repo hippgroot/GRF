@@ -110,6 +110,7 @@ public:
 
   VkImage image() const;
   vk::ImageView view() const;
+  u32 depth() const;
   u32 mips() const;
   vk::ImageLayout layout() const;
   vk::Format format() const;
@@ -230,6 +231,8 @@ class DescriptorHeap {
   static const u32          m_sampledBindingIndex = 0;
   static const u32          m_storageBindingIndex = 1;
   static const u32          m_samplerBindingIndex = 2;
+  static const u32          m_sampled3DBindingIndex = 3;
+  static const u32          m_storage3DBindingIndex = 4;
 
   vkr::Device*              m_device = nullptr;
 
@@ -238,7 +241,9 @@ class DescriptorHeap {
   vkr::DescriptorSet        m_set = nullptr;
 
   FreeList                  m_sampledList;
+  FreeList                  m_sampled3DList;
   FreeList                  m_storageList;
+  FreeList                  m_storage3DList;
   FreeList                  m_samplerList;
 
 public:

@@ -215,6 +215,10 @@ vk::ImageView Image::Impl::view() const {
   return *m_view;
 }
 
+u32 Image::Impl::depth() const {
+  return m_depth;
+}
+
 u32 Image::Impl::mips() const {
   return m_mips;
 }
@@ -556,15 +560,19 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
   >();
   const auto& limits = properties.get<vk::PhysicalDeviceVulkan12Properties>();
 
-  u32 sampledCount = std::min(65536u, limits.maxDescriptorSetUpdateAfterBindSampledImages);
-  u32 storageCount = std::min(16384u, limits.maxDescriptorSetUpdateAfterBindStorageImages);
-  u32 samplerCount = std::min(256u, limits.maxDescriptorSetUpdateAfterBindSamplers);
+  u32 sampledCount   = std::min(65536u, limits.maxDescriptorSetUpdateAfterBindSampledImages);
+  u32 sampled3DCount = std::min(1024u, limits.maxDescriptorSetUpdateAfterBindSampledImages);
+  u32 storageCount   = std::min(16384u, limits.maxDescriptorSetUpdateAfterBindStorageImages);
+  u32 storage3DCount = std::min(1024u, limits.maxDescriptorSetUpdateAfterBindStorageImages);
+  u32 samplerCount   = std::min(256u, limits.maxDescriptorSetUpdateAfterBindSamplers);
 
   m_sampledList.setCapacity(sampledCount);
+  m_sampled3DList.setCapacity(sampled3DCount);
   m_storageList.setCapacity(storageCount);
+  m_storage3DList.setCapacity(storage3DCount);
   m_samplerList.setCapacity(samplerCount);
 
-  std::array<vk::DescriptorSetLayoutBinding, 3> bindings{
+  std::array<vk::DescriptorSetLayoutBinding, 5> bindings{
     vk::DescriptorSetLayoutBinding{
       .binding          = m_sampledBindingIndex,
       .descriptorType   = vk::DescriptorType::eSampledImage,
@@ -582,10 +590,22 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
       .descriptorType   = vk::DescriptorType::eSampler,
       .descriptorCount  = samplerCount,
       .stageFlags       = vk::ShaderStageFlagBits::eAll
+    },
+    vk::DescriptorSetLayoutBinding{
+      .binding          = m_sampled3DBindingIndex,
+      .descriptorType   = vk::DescriptorType::eSampledImage,
+      .descriptorCount  = sampled3DCount,
+      .stageFlags       = vk::ShaderStageFlagBits::eAll
+    },
+    vk::DescriptorSetLayoutBinding{
+      .binding          = m_storage3DBindingIndex,
+      .descriptorType   = vk::DescriptorType::eStorageImage,
+      .descriptorCount  = storage3DCount,
+      .stageFlags       = vk::ShaderStageFlagBits::eAll
     }
   };
 
-  std::array<vk::DescriptorBindingFlags, 3> bindingFlags;
+  std::array<vk::DescriptorBindingFlags, 5> bindingFlags;
   bindingFlags.fill(
     vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::ePartiallyBound
   );
@@ -607,11 +627,11 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
   std::array<vk::DescriptorPoolSize, 3> poolSizes = {
     vk::DescriptorPoolSize{
       .type             = vk::DescriptorType::eSampledImage,
-      .descriptorCount  = sampledCount
+      .descriptorCount  = sampledCount + sampled3DCount
     },
     vk::DescriptorPoolSize{
       .type             = vk::DescriptorType::eStorageImage,
-      .descriptorCount  = storageCount
+      .descriptorCount  = storageCount + storage3DCount
     },
     vk::DescriptorPoolSize{
       .type             = vk::DescriptorType::eSampler,
@@ -636,6 +656,7 @@ void DescriptorHeap::init(const vkr::PhysicalDevice& physicalDevice, vkr::Device
 void DescriptorHeap::registerImage(Image image) {
   bool sampled = static_cast<bool>(image.m_impl->usage() & vk::ImageUsageFlagBits::eSampled);
   bool storage = static_cast<bool>(image.m_impl->usage() & vk::ImageUsageFlagBits::eStorage);
+  bool is3D    = image.m_impl->depth() > 1;
 
   vk::DescriptorImageInfo sampledInfo{
     .imageView    = image.m_impl->view(),
@@ -651,10 +672,10 @@ void DescriptorHeap::registerImage(Image image) {
   writes.reserve(2);
 
   if (sampled) {
-    u32 index = m_sampledList.next();
+    u32 index = is3D ? m_sampled3DList.next() : m_sampledList.next();
     writes.emplace_back(vk::WriteDescriptorSet{
       .dstSet           = *m_set,
-      .dstBinding       = m_sampledBindingIndex,
+      .dstBinding       = is3D ? m_sampled3DBindingIndex : m_sampledBindingIndex,
       .dstArrayElement  = index,
       .descriptorCount  = 1,
       .descriptorType   = vk::DescriptorType::eSampledImage,
@@ -664,10 +685,10 @@ void DescriptorHeap::registerImage(Image image) {
   }
 
   if (storage) {
-    u32 index = m_storageList.next();
+    u32 index = is3D ? m_storage3DList.next() : m_storageList.next();
     writes.emplace_back(vk::WriteDescriptorSet{
       .dstSet           = *m_set,
-      .dstBinding       = m_storageBindingIndex,
+      .dstBinding       = is3D ? m_storage3DBindingIndex : m_storageBindingIndex,
       .dstArrayElement  = index,
       .descriptorCount  = 1,
       .descriptorType   = vk::DescriptorType::eStorageImage,
@@ -684,12 +705,13 @@ void DescriptorHeap::registerImage(Image image) {
 void DescriptorHeap::unregisterImage(Image::Impl* image) {
   bool sampled = image->sampledHeapIndex() != std::numeric_limits<u32>::max();
   bool storage = image->storageHeapIndex() != std::numeric_limits<u32>::max();
+  bool is3D    = image->depth() > 1;
 
   if (sampled)
-    m_sampledList.recycle(image->sampledHeapIndex());
+    (is3D ? m_sampled3DList : m_sampledList).recycle(image->sampledHeapIndex());
 
   if (storage)
-    m_storageList.recycle(image->storageHeapIndex());
+    (is3D ? m_storage3DList : m_storageList).recycle(image->storageHeapIndex());
 }
 
 vk::DescriptorSetLayout DescriptorHeap::layout() const {
