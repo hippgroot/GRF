@@ -2,14 +2,38 @@
 #include "grf/queue.hpp"
 #include "grf/types.hpp"
 
+#include <imgui.h>
 #include <vulkan/vulkan_raii.hpp>
+
+#include <mutex>
 
 namespace vkr = vk::raii;
 
 struct GLFWwindow;
-struct ImGuiContext;
 
 namespace grf {
+
+class GUI::DrawData::Impl {
+  friend class GUI;
+
+  bool                      m_valid = false;
+  i32                       m_totalVtxCount = 0;
+  i32                       m_totalIdxCount = 0;
+  ImVector<ImDrawList*>     m_cmdLists;
+  ImVec2                    m_displayPos;
+  ImVec2                    m_displaySize;
+  ImVec2                    m_framebufferScale;
+  ImGuiViewport*            m_ownerViewport = nullptr;
+
+public:
+  explicit Impl(const ImDrawData* src);
+  ~Impl();
+
+  Impl(const Impl&) = delete;
+  Impl(Impl&&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  Impl& operator=(Impl&&) = delete;
+};
 
 class GUI::Impl {
   friend class GUI;
@@ -29,6 +53,7 @@ public:
 private:
   vk::Device    m_device = nullptr;
   ImGuiContext* m_context = nullptr;
+  Queue         m_queue;
 
 public:
   explicit Impl(const Info& info);
@@ -105,6 +130,7 @@ class Profiler::Impl {
   const f32               m_timestampPeriod_ns;
 
   vkr::QueryPool          m_queryPool = nullptr;
+  std::mutex              m_mutex;
   FrametimeTracker        m_tracker;
   AverageDisplay          m_averages;
   std::vector<ScopeList>  m_scopes;

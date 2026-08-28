@@ -77,7 +77,7 @@ Window::Window(const Info& info) {
     Window* window = (Window*)glfwGetWindowUserPointer(p_window);
     for (const std::uintptr_t& addr : window->m_registeredSwapchains) {
       Swapchain::Impl* swapchain = reinterpret_cast<Swapchain::Impl*>(addr);
-      swapchain->recreate(width, height);
+      swapchain->flagRecreate(width, height);
     }
 
     window->m_resizeCallback(width, height);

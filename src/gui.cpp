@@ -43,8 +43,84 @@ void GUI::render(CommandBuffer cmd) const {
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *cmd.m_impl->commandBuffer());
 }
 
+GUI::DrawData GUI::snapshot() const {
+  ImGui::SetCurrentContext(m_impl->m_context);
+  ImGui::Render();
+
+  ImDrawData* src = ImGui::GetDrawData();
+
+  if (src->Textures) {
+    bool pending = false;
+    for (const ImTextureData* tex : *src->Textures) {
+      if (tex->Status != ImTextureStatus_OK) {
+        pending = true;
+        break;
+      }
+    }
+
+    if (pending) {
+      std::lock_guard lock(m_impl->m_queue.m_impl->m_mutex);
+      for (ImTextureData* tex : *src->Textures)
+        ImGui_ImplVulkan_UpdateTexture(tex);
+    }
+  }
+
+  DrawData drawData;
+  drawData.m_impl = std::make_unique<DrawData::Impl>(src);
+  return drawData;
+}
+
+void GUI::render(CommandBuffer cmd, const DrawData& drawData) const {
+  if (!drawData.m_impl || !drawData.m_impl->m_valid)
+    return;
+
+  ImGui::SetCurrentContext(m_impl->m_context);
+
+  const DrawData::Impl& src = *drawData.m_impl;
+
+  ImDrawData data;
+  data.Valid            = src.m_valid;
+  data.TotalVtxCount    = src.m_totalVtxCount;
+  data.TotalIdxCount    = src.m_totalIdxCount;
+  data.CmdLists         = src.m_cmdLists;
+  data.DisplayPos       = src.m_displayPos;
+  data.DisplaySize      = src.m_displaySize;
+  data.FramebufferScale = src.m_framebufferScale;
+  data.OwnerViewport    = src.m_ownerViewport;
+#ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+  data.CmdListsCount    = data.CmdLists.Size;
+#endif
+
+  ImGui_ImplVulkan_RenderDrawData(&data, *cmd.m_impl->commandBuffer());
+}
+
+GUI::DrawData::DrawData() = default;
+GUI::DrawData::~DrawData() = default;
+GUI::DrawData::DrawData(DrawData&&) noexcept = default;
+GUI::DrawData& GUI::DrawData::operator=(DrawData&&) noexcept = default;
+
+GUI::DrawData::Impl::Impl(const ImDrawData* src) {
+  m_valid            = src->Valid;
+  m_totalVtxCount    = src->TotalVtxCount;
+  m_totalIdxCount    = src->TotalIdxCount;
+  m_displayPos       = src->DisplayPos;
+  m_displaySize      = src->DisplaySize;
+  m_framebufferScale = src->FramebufferScale;
+  m_ownerViewport    = src->OwnerViewport;
+
+  m_cmdLists.reserve(src->CmdLists.Size);
+  for (const ImDrawList* list : src->CmdLists)
+    m_cmdLists.push_back(list->CloneOutput());
+}
+
+GUI::DrawData::Impl::~Impl() {
+  for (ImDrawList* list : m_cmdLists)
+    IM_DELETE(list);
+}
+
 GUI::Impl::Impl(const Info& info) {
   m_device = info.device;
+  m_queue = info.queue;
 
   IMGUI_CHECKVERSION();
   m_context = ImGui::CreateContext();
@@ -90,6 +166,7 @@ Profiler::Profiler(const Device& device, const Profiler::Info& info) {
 Profiler::~Profiler() {}
 
 void Profiler::logFrameTime(f32 frameTime) const {
+  std::lock_guard lock(m_impl->m_mutex);
   m_impl->m_tracker.addTime(frameTime);
   m_impl->m_averages.addFrame(frameTime);
 }
@@ -100,7 +177,10 @@ void Profiler::beginFrame(CommandBuffer cmd) const {
 
   auto& scope = m_impl->m_scopes[m_impl->m_scopeIndex];
   scope.recordResults(m_impl->m_queryPool, base, m_impl->m_timestampPeriod_ns);
-  m_impl->m_averages.addScopeTimes(scope.results());
+  {
+    std::lock_guard lock(m_impl->m_mutex);
+    m_impl->m_averages.addScopeTimes(scope.results());
+  }
   scope.reset();
 
   cmd.m_impl->commandBuffer().resetQueryPool(m_impl->m_queryPool, base, 2 * m_impl->m_maxGpuSamples);
@@ -127,6 +207,7 @@ void Profiler::endScope(CommandBuffer cmd) const {
 }
 
 void Profiler::draw() const {
+  std::lock_guard lock(m_impl->m_mutex);
   const auto& tracker = m_impl->m_tracker;
   const auto& averages = m_impl->m_averages;
 

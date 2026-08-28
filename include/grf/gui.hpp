@@ -16,6 +16,22 @@ class GUI {
   std::unique_ptr<Impl> m_impl;
 
 public:
+  class DrawData {
+    friend class GUI;
+
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
+
+  public:
+    DrawData();
+    ~DrawData();
+
+    DrawData(const DrawData&) = delete;
+    DrawData(DrawData&&) noexcept;
+    DrawData& operator=(const DrawData&) = delete;
+    DrawData& operator=(DrawData&&) noexcept;
+  };
+
   explicit GUI(const Device& device, const Swapchain& swapchain);
   ~GUI();
 
@@ -26,7 +42,9 @@ public:
 
   bool ownsInput() const;
   void newFrame() const;
+  DrawData snapshot() const;
   void render(CommandBuffer cmd) const;
+  void render(CommandBuffer cmd, const DrawData& drawData) const;
 };
 
 class Profiler {

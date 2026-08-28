@@ -15,12 +15,29 @@ GUI gui(const Device& device, const Swapchain& swapchain);
 ```cpp
 bool ownsInput() const;
 void newFrame() const;
+DrawData snapshot() const;
 void render(CommandBuffer cmd) const;
+void render(CommandBuffer cmd, const DrawData& drawData) const;
 ```
 
 `ownsInput` returns `true` if ImGui wants to capture keyboard input or mouse input
 
-All ImGui methods to be rendered to the swapchain attached to GUI must be placed between `newFrame` and `render`. The `CommandBuffer` given to `render` must be from the graphics queue.
+All ImGui methods to be rendered to the swapchain attached to GUI must be placed between `newFrame` and either `render(cmd)` or `snapshot()`. The `CommandBuffer` given to `render` must be from the graphics queue.
+
+## Threaded rendering
+
+`render(cmd)` finalizes and draws the current frame's UI in one call — the single-threaded path.
+
+For a pipelined main/render thread split, use `snapshot()` + `render(cmd, drawData)` instead:
+
+- `snapshot()` finalizes the current ImGui frame (`ImGui::Render()`) and returns a `DrawData`: a movable, non-copyable deep copy of the frame's draw lists. It is safe to hand to another thread while the main thread starts the next `newFrame()`.
+- `render(cmd, drawData)` records the snapshot into the command buffer and may run on a render thread.
+
+Threading contract: `ownsInput()`, `newFrame()` and `snapshot()` must be called from the thread that owns the window (main thread). Only `render(cmd, drawData)` may run elsewhere, and only on one thread at a time.
+
+Texture create/update requests (in practice just the font atlas, on the first frame) are processed inside `snapshot()` on the main thread, serialized against the render thread's submits through the queue's internal mutex — the snapshot itself carries no shared texture state.
+
+`Profiler` is internally synchronized for this split: `logFrameTime`/`beginFrame`/`beginScope`/`endScope` may run on the render thread while `draw()` runs on the main thread.
 
 ## Profiler
 

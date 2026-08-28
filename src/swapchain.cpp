@@ -124,9 +124,8 @@ void Swapchain::disableVsync() {
 
 std::pair<SwapchainImage, Sync> Swapchain::acquireNextImage(u64 timeout) const {
   if (m_impl->m_dirty) {
-    i32 width, height;
-    glfwGetFramebufferSize(m_impl->m_window->m_window, &width, &height);
-    m_impl->recreate(width, height);
+    u64 extent = m_impl->m_pendingExtent;
+    m_impl->recreate(extent >> 32, extent & 0xffffffffu);
     m_impl->m_dirty = false;
   }
 
@@ -153,6 +152,8 @@ Swapchain::Impl::Impl(const Device& device, Window& window, const Swapchain::Inf
   createSwapchain(capabilities);
   createImages();
 
+  m_pendingExtent = (static_cast<u64>(m_extent.width) << 32) | m_extent.height;
+
   for (u32 i = 0; i < m_images.size(); ++i)
     m_semaphores.emplace_back(m_device.createSemaphore({}));
 
@@ -162,6 +163,11 @@ Swapchain::Impl::Impl(const Device& device, Window& window, const Swapchain::Inf
 Swapchain::Impl::~Impl() {
   if (m_window)
     m_window->m_registeredSwapchains.erase(reinterpret_cast<std::uintptr_t>(this));
+}
+
+void Swapchain::Impl::flagRecreate(u32 width, u32 height) {
+  m_pendingExtent = (static_cast<u64>(width) << 32) | height;
+  m_dirty = true;
 }
 
 void Swapchain::Impl::recreate(u32 width, u32 height) {

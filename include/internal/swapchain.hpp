@@ -79,6 +79,7 @@ class Swapchain::Impl {
 
   std::atomic<vk::PresentModeKHR> m_presentMode { vk::PresentModeKHR::eFifo };
   std::atomic<bool>               m_dirty = false;
+  std::atomic<u64>                m_pendingExtent = 0;
 
 public:
   Impl(const Device& device, Window& window, const Swapchain::Info& info);
@@ -89,6 +90,7 @@ public:
   Impl& operator=(const Impl&) = delete;
   Impl& operator=(Impl&&) = delete;
 
+  void flagRecreate(u32 width, u32 height);
   void recreate(u32 width, u32 height);
   void unregisterWindow();
 
