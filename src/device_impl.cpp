@@ -240,7 +240,8 @@ Device::Impl::PDOutput Device::Impl::choosePhysicalDevice() {
       !f2.features.shaderStorageImageWriteWithoutFormat ||
       !f12.descriptorIndexing                           ||
       !f12.shaderStorageImageArrayNonUniformIndexing    ||
-      !f12.descriptorBindingVariableDescriptorCount
+      !f12.descriptorBindingVariableDescriptorCount     ||
+      !f12.scalarBlockLayout
     ) continue;
 
     u8 rank;
@@ -334,6 +335,7 @@ void Device::Impl::createDevice(const QueueFamilies& queueFamilies, bool queryPo
       .descriptorBindingPartiallyBound              = true,
       .descriptorBindingVariableDescriptorCount     = true,
       .runtimeDescriptorArray                       = true,
+      .scalarBlockLayout                            = true,
       .shaderSubgroupExtendedTypes                  = true,
       .hostQueryReset                               = true,
       .timelineSemaphore                            = true,
