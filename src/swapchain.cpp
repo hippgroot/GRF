@@ -123,23 +123,30 @@ void Swapchain::disableVsync() {
 }
 
 std::pair<SwapchainImage, Sync> Swapchain::acquireNextImage(u64 timeout) const {
-  if (m_impl->m_dirty) {
-    u64 extent = m_impl->m_pendingExtent;
-    m_impl->recreate(extent >> 32, extent & 0xffffffffu);
-    m_impl->m_dirty = false;
+  for (;;) {
+    if (m_impl->m_dirty) {
+      m_impl->m_dirty = false;
+      u64 extent = m_impl->m_pendingExtent;
+      m_impl->recreate(extent >> 32, extent & 0xffffffffu);
+    }
+
+    vk::Semaphore semaphore = *m_impl->m_semaphores[m_impl->m_semaphoreIndex];
+
+    try {
+      auto [res, index] = m_impl->m_swapchain.acquireNextImage(timeout, semaphore);
+      if (res == vk::Result::eSuboptimalKHR)
+        m_impl->m_dirty = true;
+
+      m_impl->m_semaphoreIndex = (m_impl->m_semaphoreIndex + 1) % m_impl->m_semaphores.size();
+
+      Sync sync;
+      sync.m_impl = std::make_shared<Sync::Impl>(semaphore);
+
+      return std::make_pair(m_impl->m_images[index], sync);
+    } catch (const vk::OutOfDateKHRError&) {
+      m_impl->m_dirty = true;
+    }
   }
-
-  vk::Semaphore semaphore = *m_impl->m_semaphores[m_impl->m_semaphoreIndex];
-  m_impl->m_semaphoreIndex = (m_impl->m_semaphoreIndex + 1) % m_impl->m_semaphores.size();
-
-  auto [res, index] = m_impl->m_swapchain.acquireNextImage(timeout, semaphore);
-  if (res == vk::Result::eSuboptimalKHR)
-    m_impl->m_dirty = true;
-
-  Sync sync;
-  sync.m_impl = std::make_shared<Sync::Impl>(semaphore);
-
-  return std::make_pair(m_impl->m_images[index], sync);
 }
 
 Swapchain::Impl::Impl(const Device& device, Window& window, const Swapchain::Info& info)

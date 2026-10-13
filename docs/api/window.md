@@ -8,9 +8,25 @@ A GLFW-backed OS window with keyboard state tracking. Non-copyable, non-movable.
 Window window(Window::Info{
   .width  = 1280,
   .height = 720,
-  .title  = "GRF Application"
+  .title  = "GRF Application",
+  .mode   = Window::Mode::Windowed
 });
 ```
+
+## Modes
+
+```cpp
+enum class Window::Mode : u8 {
+  Windowed,
+  Borderless
+};
+```
+
+`Borderless` covers a whole monitor using the monitor's current video mode, so the display never changes resolution or refresh rate (GLFW's "windowed full screen"). Unlike a plain undecorated window, it sits above the macOS menu bar/Dock and the Windows taskbar. Windows do not auto-iconify when they lose focus, so alt-tabbing out of borderless leaves the window in place.
+
+Creating a window in `Borderless` mode uses the primary monitor. `setMode(Mode::Borderless)` uses the monitor that overlaps the window the most. Switching back to `Windowed` restores the position and size the window had before it went borderless (or `width × height` centered on the monitor if it started borderless).
+
+`setMode` must be called on the main thread. The resulting framebuffer resize flags any registered swapchains for lazy recreation, just like a manual resize.
 
 ## Methods
 
@@ -18,6 +34,9 @@ Window window(Window::Info{
 bool shouldClose() const;
 u32 width() const;
 u32 height() const;
+
+Mode mode() const;
+void setMode(Mode mode);
 
 void pollEvents();
 

@@ -21,13 +21,18 @@ The requested format/colorspace fall back to a supported combination when unavai
 Format format() const;
 ColorSpace colorspace() const;
 bool vsync() const;
+bool vsyncOnly() const;
+void enableVsync();
+void disableVsync();
 
 std::pair<SwapchainImage, Sync> acquireNextImage(u64 timeout_ns = u64_max) const;
 ```
 
 `acquireNextImage` returns the image to render into this frame plus a binary-semaphore `Sync` that must be passed as a wait to the `queue.submit` that renders to the image.
 
-When the swapchain becomes suboptimal (e.g. window resize), recreation is only ever performed lazily inside `acquireNextImage` — the resize callback and out-of-date presents merely flag it. The swapchain is therefore only touched by the thread that acquires and presents, so `acquireNextImage`/`present` may live on a dedicated render thread while the window is polled on the main thread.
+`enableVsync`/`disableVsync` may be called from any thread; they flag a recreation that happens on the next acquire. `disableVsync` prefers mailbox, falls back to immediate, and stays on FIFO (with a warning) when `vsyncOnly()` is true.
+
+When the swapchain becomes suboptimal or out of date (e.g. window resize, borderless toggle), recreation is only ever performed lazily inside `acquireNextImage`, which retries the acquire until it succeeds — the resize callback and out-of-date presents merely flag it. The swapchain is therefore only touched by the thread that acquires and presents, so `acquireNextImage`/`present` may live on a dedicated render thread while the window is polled on the main thread.
 
 ## SwapchainImage
 

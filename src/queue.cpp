@@ -614,16 +614,20 @@ void Queue::present(const SwapchainImage& image, std::span<const Sync> syncs) co
     .pSignalSemaphoreInfos    = &signalInfo
   });
 
-  auto res = m_impl->m_queue.presentKHR(vk::PresentInfoKHR{
-    .waitSemaphoreCount = 1,
-    .pWaitSemaphores    = &semaphore,
-    .swapchainCount     = 1,
-    .pSwapchains        = &swapchain,
-    .pImageIndices      = &index
-  });
+  try {
+    auto res = m_impl->m_queue.presentKHR(vk::PresentInfoKHR{
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores    = &semaphore,
+      .swapchainCount     = 1,
+      .pSwapchains        = &swapchain,
+      .pImageIndices      = &index
+    });
 
-  if (res == vk::Result::eSuboptimalKHR)
+    if (res == vk::Result::eSuboptimalKHR)
+      image.m_impl->flagSwapchainForRecreation();
+  } catch (const vk::OutOfDateKHRError&) {
     image.m_impl->flagSwapchainForRecreation();
+  }
 }
 
 Queue::Impl::Impl(const vkr::Device& device, u32 index)

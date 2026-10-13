@@ -14,10 +14,16 @@ class Window {
   friend class Swapchain;
 
 public:
+  enum class Mode : u8 {
+    Windowed,
+    Borderless
+  };
+
   struct Info {
-    u32 width;
-    u32 height;
-    str title;
+    u32  width;
+    u32  height;
+    str  title;
+    Mode mode;
   };
 
 private:
@@ -34,6 +40,9 @@ private:
   std::bitset<8>                m_mouseJustReleased;
   dvec2                         m_cursorPos = {0.0, 0.0};
   dvec2                         m_lastCursorPos = {0.0, 0.0};
+  Mode                          m_mode = Mode::Windowed;
+  ivec2                         m_windowedPos = {0, 0};
+  ivec2                         m_windowedSize = {1280, 720};
   std::set<std::uintptr_t>      m_registeredSwapchains;
   std::function<void(u32, u32)> m_resizeCallback = [](u32, u32){};
 
@@ -41,7 +50,8 @@ public:
   explicit Window(const Info& _ = Info{
     .width = 1280,
     .height = 720,
-    .title = "GRF Application"
+    .title = "GRF Application",
+    .mode = Mode::Windowed
   });
   ~Window();
 
@@ -53,6 +63,9 @@ public:
   bool shouldClose() const;
   u32 width() const;
   u32 height() const;
+
+  Mode mode() const;
+  void setMode(Mode mode);
 
   void pollEvents();
 

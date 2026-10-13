@@ -8,7 +8,44 @@
 
 #include "GLFW/glfw3.h"
 
+#include <algorithm>
+
 namespace grf {
+
+namespace {
+
+GLFWmonitor* overlappingMonitor(GLFWwindow* window) {
+  i32 count = 0;
+  GLFWmonitor** monitors = glfwGetMonitors(&count);
+
+  ivec2 windowPos, windowSize;
+  glfwGetWindowPos(window, &windowPos.x, &windowPos.y);
+  glfwGetWindowSize(window, &windowSize.x, &windowSize.y);
+
+  GLFWmonitor* best = glfwGetPrimaryMonitor();
+  i32 bestArea = 0;
+  for (i32 i = 0; i < count; ++i) {
+    const GLFWvidmode* video = glfwGetVideoMode(monitors[i]);
+    if (!video) continue;
+
+    ivec2 monitorPos;
+    glfwGetMonitorPos(monitors[i], &monitorPos.x, &monitorPos.y);
+
+    ivec2 overlap = glm::max(
+      glm::min(windowPos + windowSize, monitorPos + ivec2(video->width, video->height)) - glm::max(windowPos, monitorPos),
+      ivec2(0)
+    );
+
+    if (overlap.x * overlap.y > bestArea) {
+      bestArea = overlap.x * overlap.y;
+      best = monitors[i];
+    }
+  }
+
+  return best;
+}
+
+}
 
 u32 Window::m_instanceCount = 0;
 
@@ -16,10 +53,33 @@ Window::Window(const Info& info) {
   if (m_instanceCount++ == 0)
     glfwInit();
 
+  glfwDefaultWindowHints();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
-  m_window = glfwCreateWindow(info.width, info.height, info.title.c_str(), nullptr, nullptr);
+  m_windowedSize = ivec2(info.width, info.height);
+
+  GLFWmonitor* monitor = info.mode == Mode::Borderless ? glfwGetPrimaryMonitor() : nullptr;
+  const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
+
+  if (video) {
+    glfwWindowHint(GLFW_RED_BITS, video->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, video->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, video->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, video->refreshRate);
+
+    ivec2 monitorPos;
+    glfwGetMonitorPos(monitor, &monitorPos.x, &monitorPos.y);
+    m_windowedPos = monitorPos + (ivec2(video->width, video->height) - m_windowedSize) / 2;
+    m_mode = Mode::Borderless;
+
+    m_window = glfwCreateWindow(video->width, video->height, info.title.c_str(), monitor, nullptr);
+  } else {
+    m_window = glfwCreateWindow(info.width, info.height, info.title.c_str(), nullptr, nullptr);
+  }
+
   if (!m_window) log::error("Failed to create window (instance: {})", m_instanceCount);
+  if (m_mode == Mode::Windowed) glfwGetWindowPos(m_window, &m_windowedPos.x, &m_windowedPos.y);
 
   int w, h;
   glfwGetFramebufferSize(m_window, &w, &h);
@@ -108,6 +168,32 @@ u32 Window::width() const {
 
 u32 Window::height() const {
   return m_height;
+}
+
+Window::Mode Window::mode() const {
+  return m_mode;
+}
+
+void Window::setMode(Mode mode) {
+  if (mode == m_mode) return;
+
+  if (mode == Mode::Borderless) {
+    GLFWmonitor* monitor = overlappingMonitor(m_window);
+    const GLFWvidmode* video = monitor ? glfwGetVideoMode(monitor) : nullptr;
+    if (!video) {
+      log::warning("No monitor available for borderless mode");
+      return;
+    }
+
+    glfwGetWindowPos(m_window, &m_windowedPos.x, &m_windowedPos.y);
+    glfwGetWindowSize(m_window, &m_windowedSize.x, &m_windowedSize.y);
+    glfwSetWindowMonitor(m_window, monitor, 0, 0, video->width, video->height, video->refreshRate);
+  } else {
+    glfwSetWindowMonitor(m_window, nullptr,
+      m_windowedPos.x, m_windowedPos.y, m_windowedSize.x, m_windowedSize.y, GLFW_DONT_CARE);
+  }
+
+  m_mode = mode;
 }
 
 void Window::pollEvents() {
