@@ -50,14 +50,24 @@ bool isJustReleased(MouseButton button) const;
 
 vec2 cursorPosition() const;
 vec2 cursorDelta() const;
+vec2 cursorMotion() const;
+
+bool cursorCaptured() const;
+void setCursorCaptured(bool captured);
 
 void onResize(std::function<void(u32, u32)>);
 ```
 
 Call `pollEvents()` once per frame. It refreshes the *pressed / just-pressed / just-released* keyboard state that the `is*` queries read.
 
-`cursorPosition` and `cursorDelta` are both in normalized device coordinates (x and y are between -1 and 1).
+`cursorPosition` and `cursorDelta` are both in normalized device coordinates (x and y are between -1 and 1). `cursorMotion` is the movement since the last `pollEvents()` in screen coordinates (pixels on a non-scaled display) and doesn't depend on the window size, which is what mouse-look wants.
 
 `width()` and `height()` track the framebuffer size of the window.
 
 `onResize` is called when the framebuffer is resized. It is there for things like adjusting camera aspect ratio or recreating depth resources.
+
+## Cursor capture
+
+`setCursorCaptured(true)` hides the cursor and locks it to the window (`GLFW_CURSOR_DISABLED`), so `cursorMotion` keeps reporting movement past the window edges. Raw (unaccelerated) mouse motion is enabled while captured if the platform supports it. `setCursorCaptured(false)` restores the normal cursor. Motion from the `pollEvents()` right after a change is discarded, so the jump from recentering the cursor never shows up as movement. Calling it with the current state does nothing, so it is safe to call every frame. Main thread only.
+
+Dear ImGui still receives mouse input while the cursor is captured. Set `ImGuiConfigFlags_NoMouse` for as long as the GUI should ignore it.

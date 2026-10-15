@@ -40,6 +40,8 @@ private:
   std::bitset<8>                m_mouseJustReleased;
   dvec2                         m_cursorPos = {0.0, 0.0};
   dvec2                         m_lastCursorPos = {0.0, 0.0};
+  bool                          m_cursorCaptured = false;
+  bool                          m_discardMotion = false;
   Mode                          m_mode = Mode::Windowed;
   ivec2                         m_windowedPos = {0, 0};
   ivec2                         m_windowedSize = {1280, 720};
@@ -79,6 +81,10 @@ public:
 
   vec2 cursorPosition() const;
   vec2 cursorDelta() const;
+  vec2 cursorMotion() const;
+
+  bool cursorCaptured() const;
+  void setCursorCaptured(bool captured);
 
   void onResize(std::function<void(u32, u32)> callback);
 };

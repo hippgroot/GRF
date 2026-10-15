@@ -203,6 +203,11 @@ void Window::pollEvents() {
   m_mouseJustReleased.reset();
   m_lastCursorPos = m_cursorPos;
   glfwPollEvents();
+
+  if (m_discardMotion) {
+    m_lastCursorPos = m_cursorPos;
+    m_discardMotion = false;
+  }
 }
 
 bool Window::isPressed(Key key) const {
@@ -241,6 +246,27 @@ vec2 Window::cursorDelta() const {
     static_cast<f32>(m_cursorPos.x - m_lastCursorPos.x) / static_cast<f32>(m_width) * 2.0f,
     static_cast<f32>(m_cursorPos.y - m_lastCursorPos.y) / static_cast<f32>(m_height) * 2.0f
   };
+}
+
+vec2 Window::cursorMotion() const {
+  return vec2(m_cursorPos - m_lastCursorPos);
+}
+
+bool Window::cursorCaptured() const {
+  return m_cursorCaptured;
+}
+
+void Window::setCursorCaptured(bool captured) {
+  if (captured == m_cursorCaptured) return;
+
+  m_cursorCaptured = captured;
+  glfwSetInputMode(m_window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+  if (glfwRawMouseMotionSupported())
+    glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, captured ? GLFW_TRUE : GLFW_FALSE);
+
+  glfwGetCursorPos(m_window, &m_cursorPos.x, &m_cursorPos.y);
+  m_lastCursorPos = m_cursorPos;
+  m_discardMotion = true;
 }
 
 void Window::onResize(std::function<void(u32,u32)> callback) {
